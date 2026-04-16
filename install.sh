@@ -22,7 +22,7 @@ esac
 # Get latest server release tag
 TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases" \
   | grep '"tag_name"' \
-  | grep '"server-' \
+  | grep '"grctl/server-' \
   | head -1 \
   | sed 's/.*"tag_name": "\(.*\)".*/\1/')
 

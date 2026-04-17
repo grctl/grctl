@@ -6,7 +6,7 @@ Ground Control is a lightweight workflow orchestration engine built for fail-saf
 > **Status: Pre-alpha**  
 > The API is currently unstable and subject to change.
 
-**[Documentation](https://cemevren.github.io/grctl/)** **[Quick Start](https://cemevren.github.io/grctl/quick_start/)** 
+**[Documentation](https://cemevren.github.io/grctl/)** • **[Quick Start](https://cemevren.github.io/grctl/quick_start/)** 
 
 ## Why Ground Control?
 

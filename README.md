@@ -6,6 +6,8 @@ Ground Control is a lightweight workflow orchestration engine built for fail-saf
 > **Status: Pre-alpha**  
 > The API is currently unstable and subject to change.
 
+**[Documentation](https://cemevren.github.io/grctl/)** **[Quick Start](https://cemevren.github.io/grctl/quick_start/)** 
+
 ## Why Ground Control?
 
 When your processes span multiple services—sequences of API calls, database writes, and external requests—wiring them with traditional queues and manual retry logic is brittle. A worker crash midway often leads to inconsistent state and complex debugging.
@@ -56,10 +58,6 @@ async def ship(ctx: Context) -> Directive:
 
     return ctx.next.complete({"tracking_id": str(tracking_id)})
 ```
-
-## Documentation
-
-**[cemevren.github.io/grctl](https://cemevren.github.io/grctl/)**
 
 ## Contributing
 

@@ -322,6 +322,9 @@ scheme = "slate"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
 
+markdown_extensions=["attr_list"]
+
+
 # ----------------------------------------------------------------------------
 # The "extra" section contains miscellaneous settings.
 # ----------------------------------------------------------------------------

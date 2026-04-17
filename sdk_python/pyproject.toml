@@ -1,9 +1,28 @@
 [project]
 name = "grctl-sdk-python"
 version = "0.1.0"
-description = "The Python SDK for the grctl platform"
+description = "The Python SDK for the Ground Control"
 readme = "README.md"
 requires-python = ">=3.13"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "cemevren", email = "cemevren@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 dependencies = [
     "nats-py>=2.7.0",
     "msgspec>=0.18.0",
@@ -12,6 +31,17 @@ dependencies = [
     "pyyaml>=6.0.3",
     "pydantic>=2.12.5",
 ]
+
+[project.urls]
+Homepage = "https://github.com/cemevren/grctl"
+Documentation = "https://cemevren.github.io/grctl/"
+Repository = "https://github.com/cemevren/grctl"
+Issues = "https://github.com/cemevren/grctl/issues"
+Changelog = "https://github.com/cemevren/grctl/blob/main/sdk_python/CHANGELOG.md"
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12"]
+build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
@@ -25,8 +55,9 @@ dev = [
 [tool.uv]
 package = true
 
-[tool.setuptools]
-packages = ["grctl"]
+[tool.uv.build-backend]
+module-name = "grctl"
+module-root = ""
 
 [tool.pytest.ini_options]
 addopts = "--ignore=tests/examples --ignore=tests/e2e"
@@ -86,8 +117,4 @@ lint.ignore = [
     "PGH003",
     "SLF001", # Private member accessed outside of class
     "TRY002", # Create your own exception classes
-]
-
-"grctl/models/**/*.py" = [
-    "ERA001", # Commented out code
 ]

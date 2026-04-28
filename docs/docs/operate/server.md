@@ -114,6 +114,35 @@ nats:
   url: "nats://127.0.0.1:4222"
 ```
 
+## Durability: JetStream `sync_interval`
+
+By default, `grctld` configures JetStream with `sync_interval: always` (accepted values: `always`, or a duration like `10s`, `1m`). This forces an `fsync` after **every** write to the stream, guaranteeing that acknowledged data survives a power loss or kernel panic on a single-node deployment. This is the safest possible setting and the right default for a single-server install.
+
+The trade-off is throughput: every write hits the disk synchronously, which limits write rate to what the underlying storage can fsync per second.
+
+### When to relax it
+
+If you are running a **3+ node NATS cluster**, JetStream replicates each message to a quorum of nodes before acknowledging the write. Quorum replication already provides durability — losing one node does not lose data — so per-write fsync becomes redundant. In that case, remove the override (or set it to a periodic interval like `10s`) to recover throughput.
+
+To change it, point `grctld` at a custom NATS config and set `sync_interval` explicitly:
+
+```conf
+# config/nats.conf
+jetstream {
+    store_dir: "./data"
+    sync_interval: 10s   # or remove to use the NATS default (2m)
+}
+```
+
+```yaml
+# config/grctl.yaml
+nats:
+  mode: embedded
+  config_file: config/nats.conf
+```
+
+See the [NATS persistence docs](https://docs.nats.io/nats-concepts/jetstream#persistent-and-consistent-distributed-storage) for background.
+
 ## Shutdown
 
 The server listens for `SIGINT` or `SIGTERM` and performs a graceful shutdown. In-progress work is allowed to complete within a **30-second timeout** before the process exits.

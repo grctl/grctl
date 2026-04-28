@@ -106,6 +106,28 @@ async def long_running_step(ctx: Context) -> Directive:
 
 If a step exceeds its timeout, the engine cancels it and fails the workflow.
 
+### Error Handling
+
+If a step handler raises an uncaught exception, the workflow fails with a `StepFailed` error. The exception type and message are recorded automatically so operators can see why the workflow failed; you don't need to call `ctx.next.fail()` yourself for unhandled errors.
+
+To recover from an error instead of failing, catch the exception inside the step and use `ctx.next` to decide what happens next; transition to a recovery step or complete with a partial result.
+
+```python
+@order.step()
+async def validate(ctx: Context) -> Directive:
+    payload = await ctx.store.get("payload")
+
+    try:
+        amount = int(payload["amount"])
+    except (KeyError, ValueError):
+        return ctx.next.step(reject)
+
+    ctx.store.put("amount", amount)
+    return ctx.next.step(charge)
+```
+
+For task-level error handling — including retries and compensating actions — see [Tasks](tasks.md).
+
 ### Looping Steps
 
 A step can transition back to itself, creating a loop. This is useful for processing items in batches with saving state between each iteration:

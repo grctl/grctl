@@ -2,8 +2,6 @@ nats:
   mode: embedded
   config_file: "../config/nats.conf"
 
-port: 4225
-
 streams:
   storage: file
 

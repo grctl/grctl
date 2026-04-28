@@ -20,6 +20,39 @@ title: How it works
 
 **Client** is how external code [interacts with workflows](../develop/client.md). Starting runs, sending events, waiting for results.
 
+## Step Execution Model
+
+A workflow run is an isolated entity with private state and a single inbox. Directives arrive in the inbox; the run processes them one at a time, advances to a new state, and waits for the next directive. Many runs exist concurrently, but each run is independent — they share no memory and do not coordinate.
+
+**State machine**
+
+Every run is always in exactly one state. Non-terminal states mean execution continues:
+
+- `Start` — the run was just created
+- `Step` — a step handler is executing
+- `Sleep` / `SleepUntil` — waiting for a timer
+- `WaitEvent` — waiting for an external event
+
+Terminal states end the run: `Complete`, `Fail`, `Cancel`, `Terminate`.
+
+A transition moves the run from one state to the next as a single atomic unit: the previous state is recorded as completed, the next state is set up, and any state changes from the step are saved together. Either the whole transition lands or none of it does. The run is never observed in a half-changed state.
+
+**Directives drive transitions**
+
+Transitions are not initiated by the run itself. They are caused by directives delivered to the run's inbox. A directive describes what just finished and what should happen next. There are three sources:
+
+1. **A worker finishing a step.** The handler returns a `ctx.next` decision, and the worker sends a directive: "the step completed, transition to `Sleep` / `WaitEvent` / next `Step` / `Complete`."
+2. **A timer firing.** When a `Sleep` expires, the server itself produces a directive: "the sleep completed, transition to the next step."
+3. **An event arriving.** When the run is in `WaitEvent` and a matching event is delivered, the server produces a directive: "the wait completed, transition to a step that handles this event."
+
+From the run's point of view, all three look the same: a directive arrived, apply the transition.
+
+**One directive at a time**
+
+A run processes directives serially. If two directives target the same run concurrently — for example, a timer firing at the same moment an event arrives — only one is applied; the other is rejected and retried against the new state. This is enforced by compare-and-swap on the run's state and is what keeps the run's state and history from drifting apart, no matter how much concurrency surrounds it.
+
+The result is a model that is easy to reason about: each run is a small, independent state machine that reacts to messages, holds its own state, and changes state only through atomic transitions.
+
 ## Lifecycle of a Workflow
 
 ![State Machine](./img/state_machine.svg)

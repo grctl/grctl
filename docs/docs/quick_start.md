@@ -5,7 +5,7 @@ title: Quick Start
 You can quickly scaffold a new Ground Control project by running our starter script. This will download the project into a `grctl-starter` directory.
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/cemevren/grctl-starter/main/init.sh | sh"
+curl -LsSf https://raw.githubusercontent.com/cemevren/grctl-starter/main/init.sh | sh
 ```
 
 Once the project is created, navigate into it:

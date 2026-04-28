@@ -28,7 +28,7 @@ def _make_event(operation_id: str) -> HistoryEvent:
         worker_id="w-1",
         timestamp=datetime.now(UTC),
         kind=HistoryKind.task_completed,
-        msg=TaskCompleted(task_id="t-1", task_name="t", output=None, step_name="s", duration_ms=1),
+        msg=TaskCompleted(task_id="t-1", task_name="t", output={"result": None}, step_name="s", duration_ms=1),
         operation_id=operation_id,
     )
 

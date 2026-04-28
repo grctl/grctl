@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import Any
 
+import msgspec
 import msgspec.msgpack
 from pydantic import BaseModel
 
@@ -34,6 +35,12 @@ class CodecRegistry:
             if check(tp):
                 return decode(tp, obj)
         raise TypeError(f"Unsupported type: {tp}")
+
+    def to_primitive(self, value: Any) -> Any:
+        return msgspec.to_builtins(value, enc_hook=self.enc_hook)
+
+    def from_primitive(self, raw: Any, tp: type) -> Any:
+        return msgspec.convert(raw, tp, dec_hook=self.dec_hook)
 
     def encode(self, value: Any) -> bytes:
         return msgspec.msgpack.encode(value, enc_hook=self.enc_hook)

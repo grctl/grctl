@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from pydantic import BaseModel
 
 from grctl.models import Directive, HistoryEvent, HistoryKind
 from grctl.models.common import ErrorDetails
@@ -13,6 +14,11 @@ from grctl.worker.context import Context
 from grctl.worker.runtime import NonDeterminismError, StepRuntime, set_step_runtime
 from grctl.worker.task import task
 from grctl.workflow import Workflow
+
+
+class UserModel(BaseModel):
+    id: str
+    name: str
 
 
 def _make_event(kind: HistoryKind, msg, operation_id: str) -> HistoryEvent:
@@ -80,7 +86,7 @@ class TestTaskReplay:
                     task_id=op_id,
                     task_name="_task_fetch_user",
                     step_name="step",
-                    output=cached_output,
+                    output={"result": cached_output},
                     duration_ms=5,
                 ),
                 op_id,
@@ -112,11 +118,11 @@ class TestTaskReplay:
         last_event = runtime.publisher.publish_history.call_args.kwargs["event"]  # ty:ignore[unresolved-attribute]
         assert last_event.kind == HistoryKind.task_completed
         assert last_event.operation_id != ""
-        assert last_event.msg.output == {"id": 7, "name": "Live"}
+        assert last_event.msg.output == {"result": {"id": 7, "name": "Live"}}
 
-    # Test 18: Two gathered tasks with different identities resolve in journal order
-    async def test_gathered_tasks_resolve_in_journal_order(self) -> None:
-        # Journal: send_email completed before fetch_user (send_email is at cursor 0)
+    # Test 18: Two gathered tasks with different identities resolve in history order
+    async def test_gathered_tasks_resolve_in_history_order(self) -> None:
+        # history: send_email completed before fetch_user (send_email is at cursor 0)
         temp = _make_runtime([])
         # gather starts fetch_user first (seq=1), then send_email (seq=2)
         op_id_fetch = temp.generate_operation_id("_task_fetch_user", {"user_id": 1})
@@ -130,7 +136,7 @@ class TestTaskReplay:
                     task_id=op_id_send,
                     task_name="_task_send_email",
                     step_name="step",
-                    output=True,
+                    output={"result": True},
                     duration_ms=20,
                 ),
                 op_id_send,
@@ -142,7 +148,7 @@ class TestTaskReplay:
                     task_id=op_id_fetch,
                     task_name="_task_fetch_user",
                     step_name="step",
-                    output={"id": 1, "name": "Cached"},
+                    output={"result": {"id": 1, "name": "Cached"}},
                     duration_ms=40,
                 ),
                 op_id_fetch,
@@ -177,7 +183,7 @@ class TestTaskReplay:
                     task_id=op_id_task,
                     task_name="_task_fetch_user",
                     step_name="step",
-                    output=cached_output,
+                    output={"result": cached_output},
                     duration_ms=10,
                 ),
                 op_id_task,
@@ -205,7 +211,7 @@ class TestTaskReplay:
                     task_id="other:deadbeef",
                     task_name="other",
                     step_name="step",
-                    output=None,
+                    output={"result": None},
                     duration_ms=0,
                 ),
                 "other:deadbeef",
@@ -219,7 +225,7 @@ class TestTaskReplay:
 
 
 class TestTaskReplayCorrectness:
-    # Test 2: TaskFailed in journal replays as the original exception
+    # Test 2: TaskFailed in history replays as the original exception
     async def test_failed_task_replays_as_exception(self) -> None:
         temp = _make_runtime([])
         op_id = temp.generate_operation_id("_task_fetch_user", {"user_id": 1})
@@ -251,7 +257,7 @@ class TestTaskReplayCorrectness:
         # Nothing published — pure replay
         runtime.publisher.publish_history.assert_not_called()  # ty:ignore[unresolved-attribute]
 
-    # Test 3: TaskCancelled in journal re-executes the task live (infrastructure interruption)
+    # Test 3: TaskCancelled in history re-executes the task live (infrastructure interruption)
     async def test_cancelled_task_re_executes_live(self) -> None:
         temp = _make_runtime([])
         op_id = temp.generate_operation_id("_task_fetch_user", {"user_id": 5})
@@ -308,8 +314,8 @@ class TestTaskReplayCorrectness:
         with pytest.raises(RuntimeError, match="class no longer exists"):
             await _task_fetch_user(2)
 
-    # Test 5: TaskAttemptFailed only in journal → next() returns None, task re-executes live
-    async def test_attempt_failed_only_in_journal_triggers_live_execution(self) -> None:
+    # Test 5: TaskAttemptFailed only in history → next() returns None, task re-executes live
+    async def test_attempt_failed_only_in_history_triggers_live_execution(self) -> None:
         temp = _make_runtime([])
         op_id = temp.generate_operation_id("_task_fetch_user", {"user_id": 10})
 
@@ -415,7 +421,7 @@ class TestTaskReplayCorrectness:
                     task_id=op_id_fetch,
                     task_name="_task_fetch_user",
                     step_name="step",
-                    output={"id": 7, "name": "Cached"},
+                    output={"result": {"id": 7, "name": "Cached"}},
                     duration_ms=5,
                 ),
                 op_id_fetch,
@@ -464,14 +470,14 @@ class TestTaskReplayCorrectness:
         )
         assert task_failed_event.msg.error.qualified_type == "builtins.ValueError"
 
-    # Test 10: Parallel tasks with one failure replay in original journal order
-    async def test_parallel_tasks_with_failure_replay_in_journal_order(self) -> None:
+    # Test 10: Parallel tasks with one failure replay in original history order
+    async def test_parallel_tasks_with_failure_replay_in_history_order(self) -> None:
         temp = _make_runtime([])
         # gather spawns fetch_user (seq=1) then send_email (seq=2)
         op_id_fetch = temp.generate_operation_id("_task_fetch_user", {"user_id": 3})
         op_id_email = temp.generate_operation_id("_task_send_email", {"email": "z@z.com"})
 
-        # Journal: send_email failed first, fetch_user completed second
+        # history: send_email failed first, fetch_user completed second
         history = [
             _make_event(
                 HistoryKind.task_failed,
@@ -495,7 +501,7 @@ class TestTaskReplayCorrectness:
                     task_id=op_id_fetch,
                     task_name="_task_fetch_user",
                     step_name="step",
-                    output={"id": 3, "name": "Cached"},
+                    output={"result": {"id": 3, "name": "Cached"}},
                     duration_ms=20,
                 ),
                 op_id_fetch,
@@ -514,3 +520,89 @@ class TestTaskReplayCorrectness:
         assert isinstance(results[1], OSError)
         assert str(results[1]) == "network error"
         runtime.publisher.publish_history.assert_not_called()  # ty:ignore[unresolved-attribute]
+
+
+class TestTaskOutputTypedReplay:
+    async def test_task_output_replay_returns_typed_value(self) -> None:
+        @task
+        async def get_user(user_id: str) -> UserModel:
+            return UserModel(id=user_id, name="Live")
+
+        temp = _make_runtime([])
+        op_id = temp.generate_operation_id("get_user", {"user_id": "x"})
+        history = [
+            _make_event(
+                HistoryKind.task_completed,
+                TaskCompleted(
+                    task_id=op_id,
+                    task_name="get_user",
+                    step_name="step",
+                    output={"result": {"id": "x", "name": "Alice"}},
+                    duration_ms=5,
+                ),
+                op_id,
+            )
+        ]
+        runtime = _make_runtime(history)
+        set_step_runtime(runtime)
+
+        result = await get_user("x")
+
+        assert isinstance(result, UserModel)
+        assert result.id == "x"
+        assert result.name == "Alice"
+
+    async def test_task_output_replay_tuple_return(self) -> None:
+        @task
+        async def get_pair(x: str) -> tuple[str, int]:
+            return (x, 0)
+
+        temp = _make_runtime([])
+        op_id = temp.generate_operation_id("get_pair", {"x": "hello"})
+        history = [
+            _make_event(
+                HistoryKind.task_completed,
+                TaskCompleted(
+                    task_id=op_id,
+                    task_name="get_pair",
+                    step_name="step",
+                    output={"result": ["hello", 42]},
+                    duration_ms=5,
+                ),
+                op_id,
+            )
+        ]
+        runtime = _make_runtime(history)
+        set_step_runtime(runtime)
+
+        result = await get_pair("hello")
+
+        assert result == ("hello", 42)
+        assert isinstance(result, tuple)
+
+    async def test_task_output_replay_none_return(self) -> None:
+        @task
+        async def do_nothing() -> None:
+            pass
+
+        temp = _make_runtime([])
+        op_id = temp.generate_operation_id("do_nothing", {})
+        history = [
+            _make_event(
+                HistoryKind.task_completed,
+                TaskCompleted(
+                    task_id=op_id,
+                    task_name="do_nothing",
+                    step_name="step",
+                    output={"result": None},
+                    duration_ms=5,
+                ),
+                op_id,
+            )
+        ]
+        runtime = _make_runtime(history)
+        set_step_runtime(runtime)
+
+        result = await do_nothing()
+
+        assert result is None

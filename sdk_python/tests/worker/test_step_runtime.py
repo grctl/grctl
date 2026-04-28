@@ -50,7 +50,7 @@ class TestStepRuntime:
         publish_history = AsyncMock()
         runtime.publisher.publish_history = publish_history  # ty:ignore[invalid-assignment]
 
-        msg = TaskCompleted(task_id="t-1", task_name="fetch", output=42, step_name="s", duration_ms=10)
+        msg = TaskCompleted(task_id="t-1", task_name="fetch", output={"result": 42}, step_name="s", duration_ms=10)
         await runtime.record(HistoryKind.task_completed, msg, operation_id="fetch:abc123")
 
         publish_history.assert_called_once()
@@ -111,7 +111,7 @@ class TestCursorReplay:
 
     # Test 2: next() returns future with cached value when operation_id matches
     async def test_next_returns_future_with_cached_value(self):
-        msg = TaskCompleted(task_id="t-1", task_name="fetch", output=42, step_name="s", duration_ms=10)
+        msg = TaskCompleted(task_id="t-1", task_name="fetch", output={"result": 42}, step_name="s", duration_ms=10)
         history = [_make_event(HistoryKind.task_completed, msg, "op-1")]
         runtime = _make_runtime(step_history=history)
 
@@ -122,7 +122,7 @@ class TestCursorReplay:
 
     # Test 3: next() raises NonDeterminismError when a replay kind mismatches expected kind
     async def test_next_raises_on_kind_mismatch(self):
-        # Journal has task_failed but caller expects task_completed — a non-determinism mismatch
+        # history has task_failed but caller expects task_completed — a non-determinism mismatch
         msg = TaskFailed(
             task_id="t-1",
             task_name="fetch",
@@ -139,23 +139,23 @@ class TestCursorReplay:
         with pytest.raises(NonDeterminismError):
             future.result()
 
-    # Test 4: next() returns None for operation past journal (replay-to-live transition)
-    async def test_next_returns_none_past_journal(self):
-        msg = TaskCompleted(task_id="t-1", task_name="fetch", output=42, step_name="s", duration_ms=10)
+    # Test 4: next() returns None for operation past history (replay-to-live transition)
+    async def test_next_returns_none_past_history(self):
+        msg = TaskCompleted(task_id="t-1", task_name="fetch", output={"result": 42}, step_name="s", duration_ms=10)
         history = [_make_event(HistoryKind.task_completed, msg, "op-1")]
         runtime = _make_runtime(step_history=history)
 
-        # Consume the journal entry
+        # Consume the history entry
         await runtime.next(HistoryKind.task_completed, "op-1")
-        # Now past journal — should return None
+        # Now past history — should return None
         result = await runtime.next(HistoryKind.task_completed, "op-2")
         assert result is None
 
-    # Test 8: Parallel futures resolve in journal order
-    async def test_parallel_futures_resolve_in_journal_order(self):
-        msg_b = TaskCompleted(task_id="t-b", task_name="B", output="b-out", step_name="s", duration_ms=10)
-        msg_a = TaskCompleted(task_id="t-a", task_name="A", output="a-out", step_name="s", duration_ms=20)
-        # Journal order: B completed first, then A
+    # Test 8: Parallel futures resolve in history order
+    async def test_parallel_futures_resolve_in_history_order(self):
+        msg_b = TaskCompleted(task_id="t-b", task_name="B", output={"result": "b-out"}, step_name="s", duration_ms=10)
+        msg_a = TaskCompleted(task_id="t-a", task_name="A", output={"result": "a-out"}, step_name="s", duration_ms=20)
+        # history order: B completed first, then A
         history = [
             _make_event(HistoryKind.task_completed, msg_b, "op-B"),
             _make_event(HistoryKind.task_completed, msg_a, "op-A"),
@@ -178,9 +178,9 @@ class TestCursorReplay:
 
     # Test 9: Unresolved future after yield raises NonDeterminismError
     async def test_unresolved_future_raises_non_determinism_error(self):
-        msg_x = TaskCompleted(task_id="t-x", task_name="X", output="x", step_name="s", duration_ms=10)
-        msg_y = TaskCompleted(task_id="t-y", task_name="Y", output="y", step_name="s", duration_ms=20)
-        # Journal has [X, Y] but only Y registers — X blocks the cursor
+        msg_x = TaskCompleted(task_id="t-x", task_name="X", output={"result": "x"}, step_name="s", duration_ms=10)
+        msg_y = TaskCompleted(task_id="t-y", task_name="Y", output={"result": "y"}, step_name="s", duration_ms=20)
+        # history has [X, Y] but only Y registers — X blocks the cursor
         history = [
             _make_event(HistoryKind.task_completed, msg_x, "op-X"),
             _make_event(HistoryKind.task_completed, msg_y, "op-Y"),

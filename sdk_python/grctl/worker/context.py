@@ -33,7 +33,7 @@ from grctl.worker.logger import ReplayAwareLogger
 from grctl.worker.runtime import get_step_runtime
 from grctl.worker.store import Store
 from grctl.workflow import WorkflowHandle
-from grctl.workflow.workflow import StepConfig
+from grctl.workflow.workflow import HandlerConfig
 
 StepHandler = Callable[..., Awaitable[Directive]]
 
@@ -50,7 +50,7 @@ class NextBuilder:
         worker_id: str,
         store: Store,
         current_directive: Directive,
-        step_configs: dict[str, StepConfig] | None = None,
+        step_configs: dict[str, HandlerConfig] | None = None,
     ) -> None:
         self._run = run
         self._worker_id = worker_id
@@ -149,7 +149,7 @@ class Context:
         worker_id: str,
         directive: Directive,
         parent_run: RunInfo | None = None,
-        step_configs: dict[str, StepConfig] | None = None,
+        step_configs: dict[str, HandlerConfig] | None = None,
         workflow_logger: logging.Logger | None = None,
     ) -> None:
         self.run = run_info

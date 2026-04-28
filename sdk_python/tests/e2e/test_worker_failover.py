@@ -79,7 +79,7 @@ async def test_wait_for_history_event_returns_when_event_present() -> None:
         msg=TaskCompleted(
             task_id="counted_task:abc123",
             task_name="counted_task",
-            output=10,
+            output={"result": 10},
             step_name="main_step",
             duration_ms=5,
         ),

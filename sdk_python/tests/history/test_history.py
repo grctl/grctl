@@ -99,7 +99,7 @@ async def test_history_events_published(mock_connection):
     task_completed = history_events[2].msg
     assert task_completed.task_name == "call_greeting_api"
     assert task_completed.step_name == "start"
-    assert task_completed.output == "Hello, Test User!"
+    assert task_completed.output == {"result": "Hello, Test User!"}
     assert task_completed.duration_ms > 0
 
     logger.info("All history events verified successfully")

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/cemevren/grctl/compare/grctl-sdk-python-v0.1.1...grctl-sdk-python-v0.1.2) (2026-04-28)
+
+
+### Bug Fixes
+
+* task output encoding ([#5](https://github.com/cemevren/grctl/issues/5)) ([34b6d1b](https://github.com/cemevren/grctl/commit/34b6d1b4b3ef6ab58fe8a11c30ee3df3a655ee7f))
+
 ## [0.1.1](https://github.com/cemevren/grctl/compare/grctl-sdk-python-v0.1.0...grctl-sdk-python-v0.1.1) (2026-04-17)
 
 

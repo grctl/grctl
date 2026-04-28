@@ -86,7 +86,7 @@ async def test_task_retries_then_succeeds(mock_connection):
     assert isinstance(task_events[0].msg, TaskStarted)
     assert isinstance(task_events[1].msg, TaskAttemptFailed)
     assert isinstance(task_events[2].msg, TaskCompleted)
-    assert task_events[2].msg.output == "Hello, Test!"
+    assert task_events[2].msg.output == {"result": "Hello, Test!"}
 
 
 # --- Test 2: Task fails max_attempts times → raises ---
@@ -530,7 +530,7 @@ async def test_bare_task_decorator(mock_connection):
     task_events = _extract_task_events(published)
     assert isinstance(task_events[0].msg, TaskStarted)
     assert isinstance(task_events[1].msg, TaskCompleted)
-    assert task_events[1].msg.output == "Hello, Test!"
+    assert task_events[1].msg.output == {"result": "Hello, Test!"}
 
 
 # --- Unit tests for _is_error_retryable ---

@@ -1,6 +1,6 @@
 import asyncio
 import hashlib
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -29,10 +29,10 @@ def _generate_operation_id(fn_name: str, args: dict[str, Any], seq: int) -> str:
 
 
 class NonDeterminismError(Exception):
-    """Raised when replay journal doesn't match current execution order."""
+    """Raised when replay history doesn't match current execution order."""
 
 
-# Only these kinds participate in replay journal matching — everything else is observability-only
+# Only these kinds participate in replay history matching — everything else is observability-only
 _REPLAY_KINDS = frozenset(
     {
         HistoryKind.task_completed,
@@ -86,6 +86,8 @@ class StepRuntime:
     async def next(
         self, acceptable_kinds: HistoryKind | frozenset[HistoryKind], operation_id: str
     ) -> asyncio.Future[HistoryEvents] | None:
+
+        # Check if we have a step history and the cursor is within bounds. If not, we are not replaying — return None.
         if not self.step_history or self._cursor >= len(self.step_history):
             return None
 
@@ -101,7 +103,7 @@ class StepRuntime:
         if not future.done():
             if self._cursor >= len(self.step_history):
                 self._pending.pop(operation_id, None)
-                return None  # journal exhausted — live execution
+                return None  # history exhausted — live execution
             raise NonDeterminismError(
                 f"Unresolved operation {operation_id} ({acceptable_kinds}) after yield — "
                 f"cursor at {self._cursor}, pending: {list(self._pending.keys())}"
@@ -124,7 +126,7 @@ class StepRuntime:
             if entry.kind not in acceptable_kinds:
                 future.set_exception(
                     NonDeterminismError(
-                        f"Expected one of {acceptable_kinds} but journal has {entry.kind} "
+                        f"Expected one of {acceptable_kinds} but history has {entry.kind} "
                         f"at cursor {self._cursor} for {entry.operation_id}"
                     )
                 )
@@ -134,7 +136,7 @@ class StepRuntime:
 
     async def record(self, kind: HistoryKind, payload: HistoryEvents, operation_id: str) -> None:
         event = self._create_history_event(kind, payload, operation_id)
-        await self.publisher.publish_history(run_info=self.run_info, event=event)
+        await self.publisher.publish_history(run_info=self.run_info, event=event, enc_hook=self.codec.enc_hook)
 
     def get_step_context(self) -> "Context":
         from grctl.worker.context import Context  # noqa: PLC0415
@@ -179,5 +181,5 @@ def get_step_runtime() -> StepRuntime:
     return _step_run_time.get()
 
 
-def set_step_runtime(runtime: StepRuntime) -> None:
-    _step_run_time.set(runtime)
+def set_step_runtime(runtime: StepRuntime) -> Token:
+    return _step_run_time.set(runtime)

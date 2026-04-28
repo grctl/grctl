@@ -39,7 +39,7 @@ async def test_fetch_step_history_filters_to_operation_events(manifest) -> None:
         msg=TaskCompleted(
             task_id="task-1",
             task_name="fetch_data",
-            output={"ok": True},
+            output={"result": True},
             step_name="step-1",
             duration_ms=5,
         ),
@@ -111,7 +111,7 @@ async def test_fetch_step_history_preserves_order(manifest: NatsManifest) -> Non
         msg=TaskCompleted(
             task_id="task-a",
             task_name="a",
-            output="A",
+            output={"result": "A"},
             step_name="step-1",
             duration_ms=1,
         ),
@@ -126,7 +126,7 @@ async def test_fetch_step_history_preserves_order(manifest: NatsManifest) -> Non
         msg=TaskCompleted(
             task_id="task-b",
             task_name="b",
-            output="B",
+            output={"result": "B"},
             step_name="step-1",
             duration_ms=1,
         ),

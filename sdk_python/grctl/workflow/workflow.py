@@ -44,12 +44,6 @@ def inspect_handler(fn: Callable[..., Any]) -> HandlerSpec:
 class HandlerConfig:
     handler: Callable[..., Awaitable[Directive]]
     spec: HandlerSpec
-
-
-@dataclasses.dataclass
-class StepConfig:
-    handler: Callable[..., Awaitable[Directive]]
-    spec: HandlerSpec
     timeout: timedelta | None = None
 
 
@@ -82,7 +76,7 @@ class Workflow:
         self._type = workflow_type
         self._start_handler: HandlerConfig | None = None
         self._run_handler: Callable[..., Any] | None = None
-        self._step_handlers: dict[str, StepConfig] = {}
+        self._step_handlers: dict[str, HandlerConfig] = {}
         self._on_event_handlers: dict[str, HandlerConfig] = {}
         self._update_handlers: dict[str, Callable[..., Any]] = {}
         self._query_handlers: dict[str, Callable[..., Any]] = {}
@@ -170,7 +164,7 @@ class Workflow:
             step_timeout = timeout if timeout is not None else timedelta(seconds=10)
             spec = inspect_handler(func)
 
-            self._step_handlers[func.__name__] = StepConfig(
+            self._step_handlers[func.__name__] = HandlerConfig(
                 handler=func,
                 spec=spec,
                 timeout=step_timeout,

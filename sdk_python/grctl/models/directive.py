@@ -158,11 +158,11 @@ class DirectiveWire(msgspec.Struct, omit_defaults=True):
     kv: dict[str, Any] | None = None  # kv_revs
 
 
-def directive_encoder(directive: Directive) -> bytes:
+def directive_encoder(directive: Directive, enc_hook: Any = None) -> bytes:
     if directive.msg is None:
         raise ValueError("Directive message cannot be None")
 
-    msg_bytes = msgspec.msgpack.encode(directive.msg)
+    msg_bytes = msgspec.msgpack.encode(directive.msg, enc_hook=enc_hook)
 
     wire = DirectiveWire(
         id=directive.id,

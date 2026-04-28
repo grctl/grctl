@@ -13,3 +13,9 @@ profile.cov
 
 # MacOS
 .DS_Store
+
+
+CLAUDE.md
+.claude
+.crush
+project

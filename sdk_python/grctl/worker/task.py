@@ -7,7 +7,7 @@ import traceback
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar, cast, get_type_hints, overload
 
 from grctl.logging_config import get_logger
 from grctl.models.directive import RetryPolicy
@@ -43,8 +43,7 @@ def _capture_args(fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[st
 
 
 def _normalize_args(args_dict: dict[str, Any], codec: CodecRegistry) -> dict[str, Any]:
-    """Normalize task args to msgspec-encodable primitives via codec round-trip."""
-    return {k: codec.decode(codec.encode(v)) for k, v in args_dict.items()}
+    return {k: codec.to_primitive(v) for k, v in args_dict.items()}
 
 
 def _calculate_backoff_delay(policy: RetryPolicy, attempt: int) -> int:
@@ -80,20 +79,17 @@ def _is_error_retryable(error: Exception, policy: RetryPolicy) -> bool:
     """Check if an error should be retried based on the retry policy filters."""
     error_type = type(error).__name__
 
-    has_retryable = policy.retryable_errors is not None
-    has_non_retryable = policy.non_retryable_errors is not None
-
-    if not has_retryable and not has_non_retryable:
+    if policy.retryable_errors is None and policy.non_retryable_errors is None:
         return True
 
-    if has_retryable and not has_non_retryable:
-        return error_type in policy.retryable_errors  # type: ignore[operator]  # ty:ignore[unsupported-operator]
+    if policy.retryable_errors is not None and policy.non_retryable_errors is None:
+        return error_type in policy.retryable_errors
 
-    if not has_retryable and has_non_retryable:
-        return error_type not in policy.non_retryable_errors  # type: ignore[operator]  # ty:ignore[unsupported-operator]
+    if policy.retryable_errors is None and policy.non_retryable_errors is not None:
+        return error_type not in policy.non_retryable_errors
 
     # Both set: must be in retryable AND not in non_retryable
-    return error_type in policy.retryable_errors and error_type not in policy.non_retryable_errors  # type: ignore[operator]  # ty:ignore[unsupported-operator]
+    return error_type in policy.retryable_errors and error_type not in policy.non_retryable_errors  # ty:ignore[unsupported-operator]
 
 
 @dataclass
@@ -139,8 +135,8 @@ class RetryRunner:
                 can_retry = (
                     self._policy is not None and attempt < self._max_attempts and _is_error_retryable(e, self._policy)
                 )
-                if can_retry:
-                    delay_ms = _calculate_backoff_delay(self._policy, attempt)  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
+                if can_retry and self._policy is not None:
+                    delay_ms = _calculate_backoff_delay(self._policy, attempt)
                     yield AttemptFailed(
                         attempt=attempt,
                         max_attempts=self._max_attempts,
@@ -349,6 +345,8 @@ async def _execute_task(
     normalized_args = _normalize_args(args_dict, runtime.codec)
     operation_id = runtime.generate_operation_id(task_name, normalized_args)
 
+    # If it's a replaying run, wait for the task outcome from the step history (in-memory).
+    # Otherwise, execute the task live.
     future = await runtime.next(
         frozenset({HistoryKind.task_completed, HistoryKind.task_failed, HistoryKind.task_cancelled}),
         operation_id,
@@ -357,7 +355,14 @@ async def _execute_task(
         logger.info(f"Replaying outcome for task {task_name} ({operation_id}) in step {step_name}")
         event = await future
         if isinstance(event, TaskCompleted):
-            return event.output
+            raw = event.output["result"]
+            try:
+                return_type = get_type_hints(fn).get("return")
+            except Exception:
+                return_type = None
+            if return_type is not None:
+                return runtime.codec.from_primitive(raw, return_type)
+            return raw
         if isinstance(event, TaskFailed):
             raise _reconstruct_error(event.error)
         # TaskCancelled — task didn't finish; fall through to execute it live
@@ -391,7 +396,7 @@ async def _execute_task(
             task_id=operation_id,
             task_name=task_name,
             step_name=step_name,
-            output=result,
+            output={"result": runtime.codec.to_primitive(result)},
             duration_ms=duration_ms,
         ),
         operation_id,

@@ -135,7 +135,7 @@ class TaskCompleted(msgspec.Struct):
 
     task_id: str
     task_name: str
-    output: Any  # Task return value
+    output: dict[str, Any]  # Always {"result": <primitive>}
     step_name: str
     duration_ms: int
 
@@ -297,7 +297,7 @@ class HistoryWire(msgspec.Struct):
     o: str = ""
 
 
-def history_encoder(event: HistoryEvent) -> bytes:
+def history_encoder(event: HistoryEvent, enc_hook: Any = None) -> bytes:
     """Encode history event to msgpack as array: [kind, msg, run_id, timestamp, wf_id, worker_id]."""
     if event.msg is None:
         raise ValueError("HistoryEvent message cannot be None")
@@ -308,7 +308,7 @@ def history_encoder(event: HistoryEvent) -> bytes:
         wo=event.worker_id,
         ts=event.timestamp,
         k=event.kind,
-        m=msgspec.msgpack.encode(event.msg),
+        m=msgspec.msgpack.encode(event.msg, enc_hook=enc_hook),
         o=event.operation_id,
     )
 

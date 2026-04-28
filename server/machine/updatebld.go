@@ -192,6 +192,7 @@ func (f *UpdateFactory) StartRun(d ext.Directive) ([]store.StateUpdate, error) {
 	runInfoUpdate := store.RunInfoUpdate{Info: ri}
 
 	runState := ext.NewRunState(d, ext.RunStateStart)
+	runState.StartedAt = ri.StartedAt
 	runStateUpdate := store.RunStateUpdate{
 		State: runState,
 	}
@@ -246,6 +247,9 @@ func (f *UpdateFactory) StartStep(d ext.Directive, currentState ext.RunState) ([
 	}
 
 	ri := d.RunInfo
+	if ri.StartedAt == nil && currentState.StartedAt != nil {
+		ri.StartedAt = currentState.StartedAt
+	}
 	ri, err = ri.StartStep(stepName, d.Timestamp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create step started state update: %w", err)
@@ -253,6 +257,7 @@ func (f *UpdateFactory) StartStep(d ext.Directive, currentState ext.RunState) ([
 
 	runInfoUpdate := store.RunInfoUpdate{Info: ri}
 
+	d.RunInfo = ri
 	workerTaskDispatch := store.WorkerTaskDispatch{
 		Directive: d,
 	}

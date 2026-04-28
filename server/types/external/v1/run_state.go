@@ -23,6 +23,7 @@ type RunState struct {
 	RunID          RunID        `json:"run_id" msgpack:"run_id"`
 	Kind           RunStateKind `json:"kind" msgpack:"kind"`
 	EnteredAt      time.Time    `json:"entered_at" msgpack:"entered_at"`
+	StartedAt      *time.Time   `json:"started_at,omitempty" msgpack:"started_at,omitempty"`
 	LastEventSeqID uint64       `json:"last_event_seq_id" msgpack:"last_event_seq_id"`
 	// ActiveDirectiveID is the ID of the directive that caused the current RunStateStep.
 	// Non-empty only when Kind == RunStateStep. Used to detect stale step timeout directives.

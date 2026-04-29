@@ -7,21 +7,28 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"grctl/server/config"
 )
 
-func TestRunEmbeddedServerWithConfig_OverridesConfigPort(t *testing.T) {
+func TestNatsConfPortIgnored(t *testing.T) {
 	effectivePort := getFreePort(t)
 	configPort := getFreePort(t)
 	storeDir := t.TempDir()
 
 	configData := fmt.Appendf(nil, "server_name: \"grctl-test\"\nport: %d\njetstream {\n  store_dir: %q\n}", configPort, storeDir)
-
 	configPath := filepath.Join(t.TempDir(), "nats.conf")
 	if err := os.WriteFile(configPath, configData, 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
-	nc, js, ns, err := RunEmbeddedServerWithConfig(configPath, effectivePort)
+	natsCfg := config.NATSConfig{
+		ConfigFile:   configPath,
+		Port:         effectivePort,
+		StoreDir:     storeDir,
+		SyncInterval: "always",
+	}
+	nc, js, ns, err := RunEmbeddedServerWithConfig(natsCfg)
 	if err != nil {
 		t.Fatalf("run embedded server: %v", err)
 	}
@@ -44,26 +51,53 @@ func TestRunEmbeddedServerWithConfig_OverridesConfigPort(t *testing.T) {
 	}
 }
 
-func TestRunEmbeddedServerWithConfig_InvalidEffectivePort(t *testing.T) {
-	_, _, _, err := RunEmbeddedServerWithConfig("unused.conf", 0)
-	if err == nil {
-		t.Fatal("expected error for invalid effective port")
+func TestNatsConfStoreDir(t *testing.T) {
+	grctlStoreDir := t.TempDir()
+	confStoreDir := t.TempDir()
+
+	// nats.conf declares a store_dir, but NATSConfig.StoreDir should win.
+	configData := fmt.Appendf(nil, "jetstream {\n  store_dir: %q\n}", confStoreDir)
+	configPath := filepath.Join(t.TempDir(), "nats.conf")
+	if err := os.WriteFile(configPath, configData, 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	natsCfg := config.NATSConfig{
+		ConfigFile:   configPath,
+		Port:         4225,
+		StoreDir:     grctlStoreDir,
+		SyncInterval: "always",
+	}
+	opts, err := resolveEmbeddedOptions(natsCfg)
+	if err != nil {
+		t.Fatalf("resolve options: %v", err)
+	}
+	if opts.StoreDir != grctlStoreDir {
+		t.Fatalf("expected grctl store_dir %q, got %q", grctlStoreDir, opts.StoreDir)
 	}
 }
 
-func TestResolveEmbeddedOptions_EmptyConfigUsesDefaults(t *testing.T) {
-	opts, err := resolveEmbeddedOptions("")
+func TestResolveEmbeddedOptions_NoConfigFileUsesNATSConfig(t *testing.T) {
+	natsCfg := config.NATSConfig{
+		Port:         4225,
+		StoreDir:     "/tmp/grctl-test",
+		SyncInterval: "always",
+	}
+	opts, err := resolveEmbeddedOptions(natsCfg)
 	if err != nil {
 		t.Fatalf("resolve options: %v", err)
 	}
 	if !opts.JetStream {
 		t.Fatal("expected JetStream to be enabled by default")
 	}
-	if opts.StoreDir != "./data" {
-		t.Fatalf("expected default store dir ./data, got %q", opts.StoreDir)
+	if opts.StoreDir != "/tmp/grctl-test" {
+		t.Fatalf("expected store dir /tmp/grctl-test, got %q", opts.StoreDir)
 	}
 	if opts.Host != "127.0.0.1" {
 		t.Fatalf("expected default host 127.0.0.1, got %q", opts.Host)
+	}
+	if !opts.SyncAlways {
+		t.Fatal("expected SyncAlways to be true for sync_interval=always")
 	}
 }
 
@@ -74,7 +108,13 @@ func TestResolveEmbeddedOptions_RequiresJetStreamFromConfig(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	_, err := resolveEmbeddedOptions(configPath)
+	natsCfg := config.NATSConfig{
+		ConfigFile:   configPath,
+		Port:         4225,
+		StoreDir:     t.TempDir(),
+		SyncInterval: "always",
+	}
+	_, err := resolveEmbeddedOptions(natsCfg)
 	if err == nil {
 		t.Fatal("expected error when JetStream is disabled")
 	}

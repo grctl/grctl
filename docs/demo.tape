@@ -7,10 +7,10 @@ Output demo.gif
 Require grctl
 
 Set Shell "bash"
-Set FontSize 14
-Set Width 1280
-Set Height 800
-Set Padding 0
+Set FontSize 18
+Set Width 1512
+Set Height 982
+Set Padding 10
 
 # Show version
 Type "grctl version"
@@ -43,6 +43,7 @@ Sleep 3s
 Ctrl+L
 
 # Open the workflow browser (TUI)
+Set Padding 0
 Type "grctl workflow list"
 Enter
 Sleep 3s

@@ -1,9 +1,11 @@
 nats:
+  server_name: grctl
   mode: embedded
-  config_file: "../config/nats.conf"
-
-streams:
+  port: 4225
+  store_dir: ~/.grctl/data
+  sync_interval: always
   storage: file
+  config_file: ""        # optional: path to nats.conf for advanced settings
 
 defaults:
   worker_response_timeout: "5s"

@@ -36,16 +36,18 @@ var versionCmd = &cobra.Command{
 }
 
 var (
-	configPath string
-	logLevel   string
-	startPort  int
-	inMemory   bool
+	configPath   string
+	logLevel     string
+	startPort    int
+	startDataDir string
+	inMemory     bool
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "config/grctl.yaml", "Path to configuration file")
+	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "Path to configuration file")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "", "Log level (debug, info, warn, error)")
 	rootCmd.Flags().IntVar(&startPort, "port", 0, "Embedded NATS server port override (embedded mode only)")
+	rootCmd.Flags().StringVar(&startDataDir, "store-dir", "", "Embedded NATS JetStream store directory override")
 	rootCmd.Flags().BoolVar(&inMemory, "in-memory", false, "Use in-memory JetStream storage (data lost on restart)")
 
 	rootCmd.AddCommand(versionCmd)

@@ -4,7 +4,7 @@ package ingress
 
 import (
 	"context"
-	"grctl/server/natsembd"
+	"grctl/server/testutil"
 	"grctl/server/natsreg"
 	"grctl/server/store"
 	intr "grctl/server/types"
@@ -29,7 +29,7 @@ type BgTaskQueueTestSuite struct {
 }
 
 func (s *BgTaskQueueTestSuite) SetupTest() {
-	nc, js, ns, err := natsembd.RunEmbeddedServer(s.T().TempDir())
+	nc, js, ns, err := testutil.RunEmbeddedNATS(s.T().TempDir())
 	s.Require().NoError(err)
 	s.nc, s.ns, s.js = nc, ns, js
 

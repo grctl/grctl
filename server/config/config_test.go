@@ -5,137 +5,170 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func TestLoadConfigFileNotFound(t *testing.T) {
-	cfg, err := Load("/nonexistent/path/grctl.yaml")
-	if err != nil {
-		t.Fatalf("load config with missing file: %v", err)
-	}
-
-	// Should return defaults
-	if cfg.NATS.Mode != NATSModeEmbedded {
-		t.Fatalf("expected default nats.mode %q, got %q", NATSModeEmbedded, cfg.NATS.Mode)
-	}
-	if cfg.NATS.ConfigFile != "" {
-		t.Fatalf("expected default nats.config_file to be empty, got %q", cfg.NATS.ConfigFile)
-	}
-	if cfg.NATS.Port != 4225 {
-		t.Fatalf("expected default port %d, got %d", 4225, cfg.NATS.Port)
-	}
-	if cfg.Streams.Storage != "file" {
-		t.Fatalf("expected default streams.storage %q, got %q", "file", cfg.Streams.Storage)
-	}
-	if cfg.Defaults.WorkerResponseTimeout != 5*time.Second {
-		t.Fatalf("expected default worker_response_timeout 5s, got %v", cfg.Defaults.WorkerResponseTimeout)
-	}
-	if cfg.Defaults.StepTimeout != 5*time.Minute {
-		t.Fatalf("expected default step_timeout 5m, got %v", cfg.Defaults.StepTimeout)
-	}
+type ConfigSuite struct {
+	suite.Suite
+	home string
 }
 
-func TestLoadConfigFile(t *testing.T) {
+func (s *ConfigSuite) SetupSuite() {
+	home, err := os.UserHomeDir()
+	s.Require().NoError(err, "get home dir")
+	s.home = home
+}
+
+func TestConfigSuite(t *testing.T) {
+	suite.Run(t, new(ConfigSuite))
+}
+
+func (s *ConfigSuite) TestLoadConfigFileNotFound() {
+	cfg, err := Load("/nonexistent/path/grctl.yaml")
+	s.Require().NoError(err)
+
+	s.Equal(NATSModeEmbedded, cfg.NATS.Mode)
+	s.Equal("grctl", cfg.NATS.ServerName)
+	s.Equal("", cfg.NATS.ConfigFile)
+	s.Equal(4225, cfg.NATS.Port)
+	s.Equal("file", cfg.NATS.Storage)
+	s.Equal(filepath.Join(s.home, ".grctl/data"), cfg.NATS.StoreDir)
+	s.Equal("always", cfg.NATS.SyncInterval)
+	s.Equal(5*time.Second, cfg.Defaults.WorkerResponseTimeout)
+	s.Equal(5*time.Minute, cfg.Defaults.StepTimeout)
+}
+
+func (s *ConfigSuite) TestLoadDefaults() {
+	cfg, err := Load("/nonexistent/path/grctl.yaml")
+	s.Require().NoError(err)
+
+	s.Equal(NATSModeEmbedded, cfg.NATS.Mode)
+	s.Equal(4225, cfg.NATS.Port)
+	s.Equal("file", cfg.NATS.Storage)
+	s.Equal(filepath.Join(s.home, ".grctl/data"), cfg.NATS.StoreDir)
+	s.Equal("always", cfg.NATS.SyncInterval)
+	s.Equal(5*time.Second, cfg.Defaults.WorkerResponseTimeout)
+	s.Equal(5*time.Minute, cfg.Defaults.StepTimeout)
+}
+
+func (s *ConfigSuite) TestStoreDirExpansion() {
+	s.Run("tilde expanded to absolute path", func() {
+		cfg, err := Load("/nonexistent/path/grctl.yaml")
+		s.Require().NoError(err)
+		s.Equal(filepath.Join(s.home, ".grctl/data"), cfg.NATS.StoreDir)
+		s.NotEqual('~', cfg.NATS.StoreDir[0])
+	})
+
+	s.Run("absolute path left unchanged", func() {
+		configData := []byte("nats:\n  store_dir: /tmp/grctl-data\n  mode: embedded\n  port: 4225\n  storage: file\n")
+		tmpDir := s.T().TempDir()
+		configPath := filepath.Join(tmpDir, "grctl.yaml")
+		s.Require().NoError(os.WriteFile(configPath, configData, 0o600))
+
+		cfg, err := Load(configPath)
+		s.Require().NoError(err)
+		s.Equal("/tmp/grctl-data", cfg.NATS.StoreDir)
+	})
+}
+
+func (s *ConfigSuite) TestLoadConfigFile() {
 	configData := []byte(`nats:
   mode: external
   url: "nats://127.0.0.1:4222"
-  port: 4333
-streams:
   storage: memory
 defaults:
   worker_response_timeout: "45s"
   step_timeout: "2m"
 `)
-
-	tmpDir := t.TempDir()
+	tmpDir := s.T().TempDir()
 	configPath := filepath.Join(tmpDir, "grctl.yaml")
-
-	err := os.WriteFile(configPath, configData, 0o600)
-	if err != nil {
-		t.Fatalf("write config: %v", err)
-	}
+	s.Require().NoError(os.WriteFile(configPath, configData, 0o600))
 
 	cfg, err := Load(configPath)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
+	s.Require().NoError(err)
 
-	if cfg.NATS.Mode != NATSModeExternal {
-		t.Fatalf("expected nats.mode %q, got %q", NATSModeExternal, cfg.NATS.Mode)
-	}
-	if cfg.NATS.URL != "nats://127.0.0.1:4222" {
-		t.Fatalf("unexpected nats.url: %q", cfg.NATS.URL)
-	}
-	if cfg.NATS.Port != 4333 {
-		t.Fatalf("unexpected port: %d", cfg.NATS.Port)
-	}
-	if cfg.Streams.Storage != "memory" {
-		t.Fatalf("unexpected streams.storage: %q", cfg.Streams.Storage)
-	}
-	if cfg.Defaults.WorkerResponseTimeout != 45*time.Second {
-		t.Fatalf("unexpected defaults.worker_response_timeout: %v", cfg.Defaults.WorkerResponseTimeout)
-	}
-	if cfg.Defaults.StepTimeout != 2*time.Minute {
-		t.Fatalf("unexpected defaults.step_timeout: %v", cfg.Defaults.StepTimeout)
-	}
+	s.Equal(NATSModeExternal, cfg.NATS.Mode)
+	s.Equal("nats://127.0.0.1:4222", cfg.NATS.URL)
+	s.Equal("memory", cfg.NATS.Storage)
+	s.Equal(45*time.Second, cfg.Defaults.WorkerResponseTimeout)
+	s.Equal(2*time.Minute, cfg.Defaults.StepTimeout)
 }
 
-func TestLoadConfigEnvOverrides(t *testing.T) {
-	t.Setenv("grctl_NATS_PORT", "4333")
-	t.Setenv("grctl_NATS_CONFIG_FILE", "/tmp/custom-nats.conf")
-	t.Setenv("grctl_DEFAULTS_WORKER_RESPONSE_TIMEOUT", "7s")
+func (s *ConfigSuite) TestPortFromYAML() {
+	configData := []byte("nats:\n  mode: embedded\n  port: 9999\n  storage: file\n")
+	tmpDir := s.T().TempDir()
+	configPath := filepath.Join(tmpDir, "grctl.yaml")
+	s.Require().NoError(os.WriteFile(configPath, configData, 0o600))
+
+	cfg, err := Load(configPath)
+	s.Require().NoError(err)
+	s.Equal(9999, cfg.NATS.Port)
+}
+
+func (s *ConfigSuite) TestLoadConfigEnvOverrides() {
+	s.T().Setenv("GRCTL_NATS_PORT", "4333")
+	s.T().Setenv("GRCTL_NATS_CONFIG_FILE", "/tmp/custom-nats.conf")
+	s.T().Setenv("GRCTL_DEFAULTS_WORKER_RESPONSE_TIMEOUT", "7s")
 
 	cfg, err := Load("/nonexistent/path/grctl.yaml")
-	if err != nil {
-		t.Fatalf("load config with env overrides: %v", err)
-	}
+	s.Require().NoError(err)
 
-	if cfg.NATS.Port != 4333 {
-		t.Fatalf("expected env override port %d, got %d", 4333, cfg.NATS.Port)
-	}
-	if cfg.NATS.ConfigFile != "/tmp/custom-nats.conf" {
-		t.Fatalf("expected env override nats.config_file %q, got %q", "/tmp/custom-nats.conf", cfg.NATS.ConfigFile)
-	}
-	if cfg.Defaults.WorkerResponseTimeout != 7*time.Second {
-		t.Fatalf("expected env override defaults.worker_response_timeout 7s, got %v", cfg.Defaults.WorkerResponseTimeout)
-	}
+	s.Equal(4333, cfg.NATS.Port)
+	s.Equal("/tmp/custom-nats.conf", cfg.NATS.ConfigFile)
+	s.Equal(7*time.Second, cfg.Defaults.WorkerResponseTimeout)
 }
 
-func TestLoadConfigEmbeddedModeInvalidPort(t *testing.T) {
-	configData := []byte(`nats:
-  mode: embedded
-  port: 0
-`)
-
-	tmpDir := t.TempDir()
+func (s *ConfigSuite) TestLoadConfigEmbeddedModeInvalidPort() {
+	configData := []byte("nats:\n  mode: embedded\n  port: 0\n")
+	tmpDir := s.T().TempDir()
 	configPath := filepath.Join(tmpDir, "grctl.yaml")
-	if err := os.WriteFile(configPath, configData, 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
+	s.Require().NoError(os.WriteFile(configPath, configData, 0o600))
 
 	_, err := Load(configPath)
-	if err == nil {
-		t.Fatal("expected validation error for invalid embedded port")
-	}
+	s.Error(err)
 }
 
-func TestLoadConfigExternalModeIgnoresPort(t *testing.T) {
-	configData := []byte(`nats:
-  mode: external
-  url: "nats://127.0.0.1:4222"
-  port: 0
-`)
-
-	tmpDir := t.TempDir()
+func (s *ConfigSuite) TestLoadConfigExternalModeIgnoresPort() {
+	configData := []byte("nats:\n  mode: external\n  url: \"nats://127.0.0.1:4222\"\n  port: 0\n")
+	tmpDir := s.T().TempDir()
 	configPath := filepath.Join(tmpDir, "grctl.yaml")
-	if err := os.WriteFile(configPath, configData, 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
+	s.Require().NoError(os.WriteFile(configPath, configData, 0o600))
 
 	cfg, err := Load(configPath)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	if cfg.NATS.Port != 0 {
-		t.Fatalf("expected external mode to preserve configured port, got %d", cfg.NATS.Port)
-	}
+	s.Require().NoError(err)
+	s.Equal(0, cfg.NATS.Port)
+}
+
+func (s *ConfigSuite) TestValidationEmbeddedEmptyStoreDir() {
+	configData := []byte("nats:\n  mode: embedded\n  port: 4225\n  storage: file\n  store_dir: \"\"\n")
+	tmpDir := s.T().TempDir()
+	configPath := filepath.Join(tmpDir, "grctl.yaml")
+	s.Require().NoError(os.WriteFile(configPath, configData, 0o600))
+
+	_, err := Load(configPath)
+	s.Error(err)
+	s.Contains(err.Error(), "store_dir")
+}
+
+func (s *ConfigSuite) TestValidationInvalidSyncInterval() {
+	configData := []byte("nats:\n  mode: embedded\n  port: 4225\n  storage: file\n  sync_interval: \"banana\"\n")
+	tmpDir := s.T().TempDir()
+	configPath := filepath.Join(tmpDir, "grctl.yaml")
+	s.Require().NoError(os.WriteFile(configPath, configData, 0o600))
+
+	_, err := Load(configPath)
+	s.Error(err)
+	s.Contains(err.Error(), "sync_interval")
+}
+
+func (s *ConfigSuite) TestValidationValidDurationSyncInterval() {
+	configData := []byte("nats:\n  mode: embedded\n  port: 4225\n  storage: file\n  sync_interval: \"500ms\"\n")
+	tmpDir := s.T().TempDir()
+	configPath := filepath.Join(tmpDir, "grctl.yaml")
+	s.Require().NoError(os.WriteFile(configPath, configData, 0o600))
+
+	cfg, err := Load(configPath)
+	s.Require().NoError(err)
+	s.Equal("500ms", cfg.NATS.SyncInterval)
 }

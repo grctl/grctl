@@ -30,6 +30,10 @@ These flags can be passed directly to `grctld`:
 ```yaml
 # NATS broker configuration
 nats:
+  # Name reported by the embedded NATS server (embedded mode only).
+  # Default: grctl
+  server_name: grctl
+
   # Mode of operation: "embedded" (default) or "external"
   mode: embedded
 
@@ -38,14 +42,12 @@ nats:
 
   # Optional path to a custom NATS server config file (embedded mode only).
   # See: https://docs.nats.io/running-a-nats-service/configuration
-  # config_file: "config/nats.conf"
+  config_file: "config/nats.conf"
 
   # Port the embedded NATS server listens on (embedded mode only).
   # Default: 4225
   port: 4225
 
-# JetStream stream storage
-streams:
   # Storage backend: "file" (default, persistent) or "memory" (lost on restart)
   storage: file
 
@@ -71,18 +73,19 @@ Configuration is applied in the following order (later sources take precedence):
 
 ## Environment Variables
 
-All config file fields can be overridden using `grctl_`-prefixed environment variables. The mapping converts YAML path separators (`.`) to underscores (`_`).
+All config file fields can be overridden using `GRCTL_`-prefixed environment variables. The mapping converts YAML path separators (`.`) to underscores (`_`).
 
 | Environment Variable | Equivalent Config Key | Description |
 | :--- | :--- | :--- |
 | `LOG_LEVEL` | — | Log level override (also accepted by `-l`). |
-| `grctl_NATS_PORT` | `nats.port` | Embedded NATS server port. |
-| `grctl_NATS_MODE` | `nats.mode` | NATS mode (`embedded` or `external`). |
-| `grctl_NATS_URL` | `nats.url` | URL of the external NATS server. |
-| `grctl_NATS_CONFIG_FILE` | `nats.config_file` | Path to a custom NATS config file. |
-| `grctl_STREAMS_STORAGE` | `streams.storage` | JetStream storage type (`file` or `memory`). |
-| `grctl_DEFAULTS_WORKER_RESPONSE_TIMEOUT` | `defaults.worker_response_timeout` | Worker response timeout (e.g. `10s`). |
-| `grctl_DEFAULTS_STEP_TIMEOUT` | `defaults.step_timeout` | Maximum step execution time (e.g. `10m`). |
+| `GRCTL_NATS_SERVER_NAME` | `nats.server_name` | Embedded NATS server name. |
+| `GRCTL_NATS_PORT` | `nats.port` | Embedded NATS server port. |
+| `GRCTL_NATS_MODE` | `nats.mode` | NATS mode (`embedded` or `external`). |
+| `GRCTL_NATS_URL` | `nats.url` | URL of the external NATS server. |
+| `GRCTL_NATS_CONFIG_FILE` | `nats.config_file` | Path to a custom NATS config file. |
+| `GRCTL_NATS_STORAGE` | `nats.storage` | JetStream storage type (`file` or `memory`). |
+| `GRCTL_DEFAULTS_WORKER_RESPONSE_TIMEOUT` | `defaults.worker_response_timeout` | Worker response timeout (e.g. `10s`). |
+| `GRCTL_DEFAULTS_STEP_TIMEOUT` | `defaults.step_timeout` | Maximum step execution time (e.g. `10m`). |
 
 ## NATS Modes
 

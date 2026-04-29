@@ -4,7 +4,7 @@ package store_test
 
 import (
 	"context"
-	"grctl/server/natsembd"
+	"grctl/server/testutil"
 	"grctl/server/store"
 	ext "grctl/server/types/external/v1"
 	"testing"
@@ -25,7 +25,7 @@ type GetStateSnapshotTestSuite struct {
 }
 
 func (s *GetStateSnapshotTestSuite) SetupTest() {
-	nc, js, ns, err := natsembd.RunEmbeddedServer(s.T().TempDir())
+	nc, js, ns, err := testutil.RunEmbeddedNATS(s.T().TempDir())
 	s.Require().NoError(err)
 	s.nc, s.ns = nc, ns
 
@@ -195,7 +195,7 @@ type HasRunDataTestSuite struct {
 }
 
 func (s *HasRunDataTestSuite) SetupTest() {
-	nc, js, ns, err := natsembd.RunEmbeddedServer(s.T().TempDir())
+	nc, js, ns, err := testutil.RunEmbeddedNATS(s.T().TempDir())
 	s.Require().NoError(err)
 	s.nc, s.ns = nc, ns
 
@@ -269,7 +269,7 @@ func (s *HasRunDataTestSuite) TestHasRunError_True() {
 }
 
 func TestEnsureStateStream_CancelledContext_ReturnsError(t *testing.T) {
-	nc, js, ns, err := natsembd.RunEmbeddedServer(t.TempDir())
+	nc, js, ns, err := testutil.RunEmbeddedNATS(t.TempDir())
 	if err != nil {
 		t.Fatalf("failed to start embedded NATS: %v", err)
 	}

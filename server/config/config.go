@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,19 +25,36 @@ const (
 
 type Config struct {
 	NATS     NATSConfig     `koanf:"nats"`
-	Streams  StreamsConfig  `koanf:"streams"`
 	Defaults DefaultsConfig `koanf:"defaults"`
 }
 
 type NATSConfig struct {
-	Mode       string `koanf:"mode"`
-	URL        string `koanf:"url"`
-	ConfigFile string `koanf:"config_file"`
-	Port       int    `koanf:"port"`
+	ServerName   string `koanf:"server_name"`
+	Mode         string `koanf:"mode"`
+	URL          string `koanf:"url"`
+	ConfigFile   string `koanf:"config_file"`
+	Port         int    `koanf:"port"`
+	StoreDir     string `koanf:"store_dir"`
+	SyncInterval string `koanf:"sync_interval"`
+	Storage      string `koanf:"storage"`
 }
 
-type StreamsConfig struct {
-	Storage string `koanf:"storage"`
+func (n NATSConfig) InMemory() bool {
+	return n.Storage == "memory"
+}
+
+func (n NATSConfig) ResolveStoreDir() NATSConfig {
+	if !strings.HasPrefix(n.StoreDir, "~/") {
+		return n
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		slog.Warn("could not resolve home directory for store_dir, using fallback", "error", err, "fallback", "./data")
+		n.StoreDir = "./data"
+		return n
+	}
+	n.StoreDir = filepath.Join(home, n.StoreDir[2:])
+	return n
 }
 
 type DefaultsConfig struct {
@@ -58,7 +76,7 @@ func Load(path string) (Config, error) {
 		}
 	}
 
-	err = k.Load(env.Provider("grctl_", ".", envKeyMapper), nil)
+	err = k.Load(env.Provider("GRCTL_", ".", envKeyMapper), nil)
 	if err != nil {
 		return Config{}, fmt.Errorf("load env config: %w", err)
 	}
@@ -69,6 +87,7 @@ func Load(path string) (Config, error) {
 	}
 
 	cfg = cfg.Normalized()
+	cfg.NATS = cfg.NATS.ResolveStoreDir()
 	err = cfg.Validate()
 	if err != nil {
 		return Config{}, err
@@ -80,7 +99,7 @@ func Load(path string) (Config, error) {
 func (c Config) Normalized() Config {
 	cfg := c
 	cfg.NATS.Mode = strings.ToLower(strings.TrimSpace(cfg.NATS.Mode))
-	cfg.Streams.Storage = strings.ToLower(strings.TrimSpace(cfg.Streams.Storage))
+	cfg.NATS.Storage = strings.ToLower(strings.TrimSpace(cfg.NATS.Storage))
 	return cfg
 }
 
@@ -90,6 +109,9 @@ func (c Config) Validate() error {
 		if c.NATS.Port < 1 || c.NATS.Port > 65535 {
 			return fmt.Errorf("port must be in range 1..65535 for embedded mode")
 		}
+		if c.NATS.StoreDir == "" {
+			return fmt.Errorf("nats.store_dir must be non-empty in embedded mode")
+		}
 	case NATSModeExternal:
 		if c.NATS.URL == "" {
 			return fmt.Errorf("nats.url is required for external mode")
@@ -98,10 +120,14 @@ func (c Config) Validate() error {
 		return fmt.Errorf("nats.mode must be %q or %q", NATSModeEmbedded, NATSModeExternal)
 	}
 
-	switch c.Streams.Storage {
+	if err := validateSyncInterval(c.NATS.SyncInterval); err != nil {
+		return err
+	}
+
+	switch c.NATS.Storage {
 	case "memory", "file":
 	default:
-		return fmt.Errorf("streams.storage must be \"memory\" or \"file\"")
+		return fmt.Errorf("nats.storage must be \"memory\" or \"file\"")
 	}
 
 	if c.Defaults.WorkerResponseTimeout <= 0 {
@@ -114,8 +140,15 @@ func (c Config) Validate() error {
 	return nil
 }
 
-func (c Config) InMemoryStreams() bool {
-	return c.Streams.Storage == "memory"
+func validateSyncInterval(s string) error {
+	if s == "always" {
+		return nil
+	}
+	_, err := time.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("nats.sync_interval must be \"always\" or a valid duration (e.g. \"1s\"), got %q", s)
+	}
+	return nil
 }
 
 func loadConfigFile(k *koanf.Koanf, path string) error {
@@ -136,13 +169,12 @@ func loadConfigFile(k *koanf.Koanf, path string) error {
 }
 
 func envKeyMapper(key string) string {
-	key = strings.TrimPrefix(key, "grctl_")
 	key = strings.ToLower(key)
+	key = strings.TrimPrefix(key, "grctl_")
 	firstUnderscore := strings.Index(key, "_")
 	if firstUnderscore == -1 {
 		return key
 	}
-
 	return key[:firstUnderscore] + "." + key[firstUnderscore+1:]
 }
 

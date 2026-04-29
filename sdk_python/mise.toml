@@ -17,3 +17,7 @@ depends = ["lint", "format", "typecheck"]
 [tasks.test]
 description = "Run tests"
 run = "uv run pytest tests"
+
+[tasks.test_e2e]
+description = "Run e2e tests"
+run = "uv run pytest tests/e2e tests/examples"

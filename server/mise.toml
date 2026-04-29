@@ -2,10 +2,10 @@
 description = "Build grctld (server) and grctl (CLI) binaries"
 run = """
 echo "Building grctld (server daemon)..."
-go build -ldflags="-s -w" -o bin/grctld ./cmd/grctld
+go build -ldflags="-s -w" -o bin/grctld ./grctld
 echo "Binary: bin/grctld"
 echo "Building grctl (CLI)..."
-go build -ldflags="-s -w" -o bin/grctl ./cmd/grctl
+go build -ldflags="-s -w" -o bin/grctl ./grctl
 echo "Binary: bin/grctl"
 """
 

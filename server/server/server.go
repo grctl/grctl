@@ -17,12 +17,13 @@ import (
 const maxTimerDeliveries = 10
 const maxBgTaskDeliveries = 5
 
-type stoppable interface {
+type timerSvc interface {
+	Start(ingress.TimerHandler) error
 	Stop()
 }
 
-type timerSvc interface {
-	Start(ingress.TimerHandler) error
+type directiveSvc interface {
+	Start(ingress.DirectiveHandler) error
 	Stop()
 }
 
@@ -32,12 +33,13 @@ type bgTaskSvc interface {
 }
 
 type Server struct {
-	apiSubscriber   *api.APISubscriber
-	directiveQueue  stoppable
-	timerStream     timerSvc
-	timerMsgHandler *machine.TimerMsgHandler
-	bgTaskQueue     bgTaskSvc
-	bgTaskHandler   *machine.BgTaskHandler
+	apiSubscriber    *api.APISubscriber
+	directiveQueue   directiveSvc
+	directiveHandler *machine.DirectiveHandler
+	timerStream      timerSvc
+	timerMsgHandler  *machine.TimerMsgHandler
+	bgTaskQueue      bgTaskSvc
+	bgTaskHandler    *machine.BgTaskHandler
 }
 
 // Options configures the server.
@@ -86,21 +88,22 @@ func NewServer(
 	apiHandler := api.NewAPIHandler(runAPI)
 	apiSubscriber := api.NewAPISubscriber(nc, apiHandler)
 
-	if err := directiveQueue.Start(directiveHandler.Handle); err != nil {
-		return nil, fmt.Errorf("failed to start directive queue: %w", err)
-	}
-
 	return &Server{
-		apiSubscriber:   apiSubscriber,
-		directiveQueue:  directiveQueue,
-		timerStream:     timerStream,
-		timerMsgHandler: timerMsgHandler,
-		bgTaskQueue:     bgTaskQueue,
-		bgTaskHandler:   bgTaskHandler,
+		apiSubscriber:    apiSubscriber,
+		directiveQueue:   directiveQueue,
+		directiveHandler: directiveHandler,
+		timerStream:      timerStream,
+		timerMsgHandler:  timerMsgHandler,
+		bgTaskQueue:      bgTaskQueue,
+		bgTaskHandler:    bgTaskHandler,
 	}, nil
 }
 
 func (s *Server) Start() error {
+	if err := s.directiveQueue.Start(s.directiveHandler.Handle); err != nil {
+		return fmt.Errorf("failed to start directive queue: %w", err)
+	}
+
 	if err := s.apiSubscriber.Start(); err != nil {
 		return fmt.Errorf("failed to start API handler: %w", err)
 	}
@@ -116,17 +119,19 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func (s *Server) Stop() {
-	if s.apiSubscriber != nil {
+func (s *Server) Stop(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
 		s.apiSubscriber.Stop()
-	}
-	if s.directiveQueue != nil {
 		s.directiveQueue.Stop()
-	}
-	if s.timerStream != nil {
 		s.timerStream.Stop()
-	}
-	if s.bgTaskQueue != nil {
 		s.bgTaskQueue.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("shutdown timed out: %w", ctx.Err())
 	}
 }

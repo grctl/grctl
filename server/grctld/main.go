@@ -1,4 +1,4 @@
-package commands
+package main
 
 import (
 	"fmt"
@@ -51,8 +51,10 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 }
 
-func Execute() error {
-	return rootCmd.Execute()
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
 
 func getLogLevel() slog.Level {

@@ -1,8 +1,8 @@
 package workflow_browser
 
 import (
-	"grctl/server/internal/tui/workflow_history"
-	"grctl/server/internal/tui/workflow_list"
+	"grctl/server/grctl/tui/workflow_history"
+	"grctl/server/grctl/tui/workflow_list"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

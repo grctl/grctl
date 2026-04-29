@@ -11,7 +11,7 @@ import (
 	chromaLexers "github.com/alecthomas/chroma/v2/lexers"
 	chromaStyles "github.com/alecthomas/chroma/v2/styles"
 
-	"grctl/server/internal/tui/common"
+	"grctl/server/grctl/tui/common"
 	ext "grctl/server/types/external/v1"
 
 	"github.com/charmbracelet/lipgloss"

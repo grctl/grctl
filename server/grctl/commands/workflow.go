@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"grctl/server/internal/tui/workflow_browser"
-	"grctl/server/internal/tui/workflow_history"
+	"grctl/server/grctl/tui/workflow_browser"
+	"grctl/server/grctl/tui/workflow_history"
 	ext "grctl/server/types/external/v1"
 
 	tea "github.com/charmbracelet/bubbletea"

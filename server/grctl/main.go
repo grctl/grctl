@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"grctl/server/cmd/grctl/commands"
+	"grctl/server/grctl/commands"
 )
 
 func main() {

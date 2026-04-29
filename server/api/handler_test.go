@@ -9,7 +9,7 @@ import (
 
 	"grctl/server/api"
 	"grctl/server/config"
-	"grctl/server/natsembd"
+	"grctl/server/testutil"
 	"grctl/server/natsreg"
 	"grctl/server/store"
 	ext "grctl/server/types/external/v1"
@@ -31,7 +31,7 @@ type HandleStartCmdTestSuite struct {
 }
 
 func (s *HandleStartCmdTestSuite) SetupTest() {
-	nc, js, ns, err := natsembd.RunEmbeddedServer(s.T().TempDir())
+	nc, js, ns, err := testutil.RunEmbeddedNATS(s.T().TempDir())
 	s.Require().NoError(err)
 	s.nc = nc
 	s.ns = ns

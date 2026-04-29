@@ -16,10 +16,7 @@ func TestApplyStartConfigOverrides_PortFlag(t *testing.T) {
 	}
 
 	cfg := config.Config{
-		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225},
-		Streams: config.StreamsConfig{
-			Storage: "file",
-		},
+		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225, Storage: "file", StoreDir: "/tmp/data", SyncInterval: "always"},
 		Defaults: config.DefaultsConfig{
 			WorkerResponseTimeout: 1,
 			StepTimeout:           1,
@@ -43,10 +40,7 @@ func TestApplyStartConfigOverrides_InvalidEmbeddedPort(t *testing.T) {
 	}
 
 	cfg := config.Config{
-		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225},
-		Streams: config.StreamsConfig{
-			Storage: "file",
-		},
+		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225, Storage: "file", StoreDir: "/tmp/data", SyncInterval: "always"},
 		Defaults: config.DefaultsConfig{
 			WorkerResponseTimeout: 1,
 			StepTimeout:           1,
@@ -68,12 +62,11 @@ func TestApplyStartConfigOverrides_ExternalModePortNotRequired(t *testing.T) {
 
 	cfg := config.Config{
 		NATS: config.NATSConfig{
-			Mode: config.NATSModeExternal,
-			URL:  "nats://127.0.0.1:4222",
-			Port: 4225,
-		},
-		Streams: config.StreamsConfig{
-			Storage: "file",
+			Mode:         config.NATSModeExternal,
+			URL:          "nats://127.0.0.1:4222",
+			Port:         4225,
+			Storage:      "file",
+			SyncInterval: "always",
 		},
 		Defaults: config.DefaultsConfig{
 			WorkerResponseTimeout: 1,
@@ -98,10 +91,7 @@ func TestApplyStartConfigOverrides_InMemoryFlag(t *testing.T) {
 	}
 
 	cfg := config.Config{
-		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225},
-		Streams: config.StreamsConfig{
-			Storage: "file",
-		},
+		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225, Storage: "file", StoreDir: "/tmp/data", SyncInterval: "always"},
 		Defaults: config.DefaultsConfig{
 			WorkerResponseTimeout: 1,
 			StepTimeout:           1,
@@ -111,7 +101,31 @@ func TestApplyStartConfigOverrides_InMemoryFlag(t *testing.T) {
 	if err := applyStartConfigOverrides(cmd, &cfg); err != nil {
 		t.Fatalf("apply overrides: %v", err)
 	}
-	if cfg.Streams.Storage != "memory" {
-		t.Fatalf("expected streams.storage to be \"memory\", got %q", cfg.Streams.Storage)
+	if cfg.NATS.Storage != "memory" {
+		t.Fatalf("expected nats.storage to be \"memory\", got %q", cfg.NATS.Storage)
+	}
+}
+
+func TestApplyStartConfigOverrides_DataDirFlag(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+	cmd.Flags().String("store-dir", "", "")
+	if err := cmd.Flags().Set("store-dir", "/tmp/override"); err != nil {
+		t.Fatalf("set flag: %v", err)
+	}
+
+	cfg := config.Config{
+		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225, Storage: "file", StoreDir: "/original"},
+		Defaults: config.DefaultsConfig{
+			WorkerResponseTimeout: 1,
+			StepTimeout:           1,
+		},
+	}
+
+	startDataDir = "/tmp/override"
+	if err := applyStartConfigOverrides(cmd, &cfg); err != nil {
+		t.Fatalf("apply overrides: %v", err)
+	}
+	if cfg.NATS.StoreDir != "/tmp/override" {
+		t.Fatalf("expected store_dir override, got %q", cfg.NATS.StoreDir)
 	}
 }

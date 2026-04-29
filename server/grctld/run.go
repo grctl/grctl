@@ -42,7 +42,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	s, err := server.NewServer(ctx, nc, js, &cfg, &server.Options{InMemory: cfg.InMemoryStreams()})
+	s, err := server.NewServer(ctx, nc, js, &cfg, &server.Options{InMemory: cfg.NATS.InMemory()})
 	if err != nil {
 		slog.Error("failed to create server instance", "error", err)
 		return err
@@ -65,7 +65,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 func startNATS(cfg config.Config) (*nats.Conn, jetstream.JetStream, *natsserver.Server, error) {
 	if cfg.NATS.Mode == config.NATSModeEmbedded {
 		slog.Info("Using embedded NATS mode", "effective_port", cfg.NATS.Port)
-		return natsembd.RunEmbeddedServerWithConfig(cfg.NATS.ConfigFile, cfg.NATS.Port)
+		return natsembd.RunEmbeddedServerWithConfig(cfg.NATS)
 	}
 
 	nc, err := nats.Connect(cfg.NATS.URL)
@@ -89,8 +89,11 @@ func applyStartConfigOverrides(cmd *cobra.Command, cfg *config.Config) error {
 			return fmt.Errorf("invalid --port value: %w", err)
 		}
 	}
+	if cmd.Flags().Changed("store-dir") {
+		cfg.NATS.StoreDir = startDataDir
+	}
 	if cmd.Flags().Changed("in-memory") {
-		cfg.Streams.Storage = "memory"
+		cfg.NATS.Storage = "memory"
 	}
 	return nil
 }

@@ -5,7 +5,7 @@ package machine_test
 import (
 	"context"
 	"grctl/server/machine"
-	"grctl/server/natsembd"
+	"grctl/server/testutil"
 	"grctl/server/store"
 	ext "grctl/server/types/external/v1"
 	"testing"
@@ -27,7 +27,7 @@ type DirectiveHandlerTestSuite struct {
 }
 
 func (s *DirectiveHandlerTestSuite) SetupTest() {
-	nc, js, ns, err := natsembd.RunEmbeddedServer(s.T().TempDir())
+	nc, js, ns, err := testutil.RunEmbeddedNATS(s.T().TempDir())
 	s.Require().NoError(err)
 	s.nc, s.ns = nc, ns
 

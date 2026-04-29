@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"grctl/server/config"
+
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -15,51 +17,54 @@ import (
 
 const embeddedServerReadyTimeout = 15 * time.Second
 
-func RunEmbeddedServer(storeDir string) (*nats.Conn, jetstream.JetStream, *server.Server, error) {
-	opts := &server.Options{
-		ServerName: "grctl-embedded",
-		Port:       server.RANDOM_PORT,
-		JetStream:  true,
-		StoreDir:   storeDir,
-		NoSigs:     true,
-		NoLog:      true,
-	}
-	return runEmbeddedServer(opts)
-}
 
-func RunEmbeddedServerWithConfig(configFile string, effectivePort int) (*nats.Conn, jetstream.JetStream, *server.Server, error) {
-	if effectivePort < 1 || effectivePort > 65535 {
-		return nil, nil, nil, fmt.Errorf("effective embedded port must be in range 1..65535, got %d", effectivePort)
-	}
-	opts, err := resolveEmbeddedOptions(configFile)
+func RunEmbeddedServerWithConfig(natsCfg config.NATSConfig) (*nats.Conn, jetstream.JetStream, *server.Server, error) {
+	opts, err := resolveEmbeddedOptions(natsCfg)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// grctl port config is authoritative for embedded mode.
-	opts.Port = effectivePort
-	opts.NoSigs = true
 	return runEmbeddedServer(opts)
 }
 
-func resolveEmbeddedOptions(configFile string) (*server.Options, error) {
-	if strings.TrimSpace(configFile) == "" {
-		return &server.Options{
-			ServerName: "grctl-embedded",
-			Host:       "127.0.0.1",
-			JetStream:  true,
-			StoreDir:   "./data",
-			NoLog:      true,
-		}, nil
+func resolveEmbeddedOptions(natsCfg config.NATSConfig) (*server.Options, error) {
+	opts := &server.Options{
+		ServerName: natsCfg.ServerName,
+		Host:       "127.0.0.1",
+		JetStream:  true,
+		NoLog:      true,
+		NoSigs:     true,
 	}
 
-	opts, err := server.ProcessConfigFile(configFile)
-	if err != nil {
-		return nil, err
+	if strings.TrimSpace(natsCfg.ConfigFile) != "" {
+		fileOpts, err := server.ProcessConfigFile(natsCfg.ConfigFile)
+		if err != nil {
+			return nil, fmt.Errorf("process NATS config file: %w", err)
+		}
+		if !fileOpts.JetStream {
+			return nil, errors.New("JetStream must be enabled in NATS config")
+		}
+		opts = fileOpts
 	}
-	if !opts.JetStream {
-		return nil, errors.New("JetStream must be enabled in NATS config")
-	}
+
+	// grctl.yaml and flags always win for these fields.
+	opts.ServerName = natsCfg.ServerName
+	opts.Port = natsCfg.Port
+	opts.StoreDir = natsCfg.StoreDir
+	applySyncInterval(opts, natsCfg.SyncInterval)
+
 	return opts, nil
+}
+
+func applySyncInterval(opts *server.Options, syncInterval string) {
+	if syncInterval == "always" {
+		opts.SyncAlways = true
+		opts.SyncInterval = 0
+		return
+	}
+	if d, err := time.ParseDuration(syncInterval); err == nil {
+		opts.SyncAlways = false
+		opts.SyncInterval = d
+	}
 }
 
 func NewJetStreamContext(nc *nats.Conn) (jetstream.JetStream, error) {

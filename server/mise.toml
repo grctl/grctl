@@ -1,11 +1,16 @@
 [tasks.build]
 description = "Build grctld (server) and grctl (CLI) binaries"
 run = """
+VERSION=$(git describe --tags --always --dirty --match "v[0-9]*" 2>/dev/null || echo "dev")
+COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}"
+
 echo "Building grctld (server daemon)..."
-go build -ldflags="-s -w" -o bin/grctld ./grctld
+go build -ldflags="${LDFLAGS}" -o bin/grctld ./grctld
 echo "Binary: bin/grctld"
 echo "Building grctl (CLI)..."
-go build -ldflags="-s -w" -o bin/grctl ./grctl
+go build -ldflags="${LDFLAGS}" -o bin/grctl ./grctl
 echo "Binary: bin/grctl"
 """
 

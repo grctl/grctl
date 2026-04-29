@@ -3,8 +3,8 @@ package workflow_history
 import (
 	"strings"
 
-	"grctl/server/internal/tui/common"
-	"grctl/server/internal/tui/table"
+	"grctl/server/grctl/tui/common"
+	"grctl/server/grctl/tui/table"
 	ext "grctl/server/types/external/v1"
 
 	"github.com/charmbracelet/lipgloss"

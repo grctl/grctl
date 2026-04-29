@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"grctl/server/internal/tui/common"
-	"grctl/server/internal/tui/table"
+	"grctl/server/grctl/tui/common"
+	"grctl/server/grctl/tui/table"
 	"grctl/server/natsreg"
 	"grctl/server/store"
 	ext "grctl/server/types/external/v1"

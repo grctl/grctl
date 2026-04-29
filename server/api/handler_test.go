@@ -14,7 +14,7 @@ import (
 	"grctl/server/store"
 	ext "grctl/server/types/external/v1"
 
-	server "grctl/server/internal/server"
+	"grctl/server/server"
 
 	natsserver "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
@@ -56,7 +56,7 @@ func (s *HandleStartCmdTestSuite) SetupTest() {
 }
 
 func (s *HandleStartCmdTestSuite) TearDownTest() {
-	s.srv.Stop()
+	_ = s.srv.Stop(context.Background())
 	s.nc.Close()
 	s.ns.Shutdown()
 	s.ns.WaitForShutdown()

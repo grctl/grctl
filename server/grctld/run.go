@@ -1,4 +1,4 @@
-package commands
+package main
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"grctl/server/config"
-	"grctl/server/internal/server"
 	"grctl/server/natsembd"
+	"grctl/server/server"
 
 	natsserver "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
@@ -41,8 +41,6 @@ func runServer(cmd *cobra.Command, args []string) error {
 		slog.Error("failed to initialize NATS", "error", err)
 		return err
 	}
-	defer shutdownNATS(ns)
-	defer closeNATS(nc)
 
 	s, err := server.NewServer(ctx, nc, js, &cfg, &server.Options{InMemory: cfg.InMemoryStreams()})
 	if err != nil {
@@ -58,7 +56,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 	slog.Info("grctl Server started successfully")
 
-	waitForShutdown(ctx, s)
+	// Wait for shutdown signal and then shut down gracefully
+	<-ctx.Done()
+	shutdown(s, nc, ns)
 	return nil
 }
 
@@ -95,38 +95,22 @@ func applyStartConfigOverrides(cmd *cobra.Command, cfg *config.Config) error {
 	return nil
 }
 
-func waitForShutdown(ctx context.Context, s *server.Server) {
-	<-ctx.Done()
+func shutdown(s *server.Server, nc *nats.Conn, ns *natsserver.Server) {
 	slog.Info("Shutdown signal received, stopping server...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	done := make(chan struct{})
-	go func() {
-		if s != nil {
-			s.Stop()
-		}
-		close(done)
-	}()
-
-	select {
-	case <-done:
+	if err := s.Stop(shutdownCtx); err != nil {
+		slog.Error("Forced shutdown after timeout", "error", err)
+	} else {
 		slog.Info("Server stopped cleanly")
-	case <-shutdownCtx.Done():
-		slog.Error("Forced shutdown after timeout")
 	}
-}
 
-func shutdownNATS(ns *natsserver.Server) {
+	nc.Close()
+
 	if ns != nil {
 		ns.Shutdown()
 		ns.WaitForShutdown()
-	}
-}
-
-func closeNATS(nc *nats.Conn) {
-	if nc != nil {
-		nc.Close()
 	}
 }

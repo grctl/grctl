@@ -57,10 +57,10 @@ async def main() -> None:
 
     try:
         result = await client.run_workflow(
-            workflow_type=ltl.workflow_type,
-            workflow_id=str(ulid.ULID()),
-            workflow_input={"start": 0},
-            workflow_timeout=timedelta(seconds=30),
+            type=ltl.workflow_type,
+            id=str(ulid.ULID()),
+            input={"start": 0},
+            timeout=timedelta(seconds=30),
         )
         logger.info(f"Workflow result: {result}")
 

@@ -241,10 +241,10 @@ async def test_task_input_change_raises_nondeterminism() -> None:
 
     workflow_id = str(ulid.ULID())
     handle = await client.start_workflow(
-        workflow_type=_NDET_TASK_INPUT_WORKFLOW_TYPE,
-        workflow_id=workflow_id,
-        workflow_input={},
-        workflow_timeout=_WORKFLOW_TIMEOUT,
+        type=_NDET_TASK_INPUT_WORKFLOW_TYPE,
+        id=workflow_id,
+        input={},
+        timeout=_WORKFLOW_TIMEOUT,
     )
 
     try:
@@ -281,10 +281,10 @@ async def test_task_reorder_raises_nondeterminism() -> None:
 
     workflow_id = str(ulid.ULID())
     handle = await client.start_workflow(
-        workflow_type=_NDET_TASK_REORDER_WORKFLOW_TYPE,
-        workflow_id=workflow_id,
-        workflow_input={},
-        workflow_timeout=_WORKFLOW_TIMEOUT,
+        type=_NDET_TASK_REORDER_WORKFLOW_TYPE,
+        id=workflow_id,
+        input={},
+        timeout=_WORKFLOW_TIMEOUT,
     )
 
     try:
@@ -321,10 +321,10 @@ async def test_start_input_change_raises_nondeterminism() -> None:
 
     workflow_id = str(ulid.ULID())
     handle = await client.start_workflow(
-        workflow_type=_NDET_START_PARENT_WORKFLOW_TYPE,
-        workflow_id=workflow_id,
-        workflow_input={},
-        workflow_timeout=_WORKFLOW_TIMEOUT,
+        type=_NDET_START_PARENT_WORKFLOW_TYPE,
+        id=workflow_id,
+        input={},
+        timeout=_WORKFLOW_TIMEOUT,
     )
 
     try:
@@ -361,10 +361,10 @@ async def test_send_to_parent_input_change_raises_nondeterminism() -> None:
 
     workflow_id = str(ulid.ULID())
     parent_handle = await client.start_workflow(
-        workflow_type=_NDET_SEND_PARENT_WORKFLOW_TYPE,
-        workflow_id=workflow_id,
-        workflow_input={},
-        workflow_timeout=_WORKFLOW_TIMEOUT,
+        type=_NDET_SEND_PARENT_WORKFLOW_TYPE,
+        id=workflow_id,
+        input={},
+        timeout=_WORKFLOW_TIMEOUT,
     )
     child_handle: WorkflowHandle | None = None
 

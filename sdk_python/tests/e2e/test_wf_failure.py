@@ -121,10 +121,10 @@ async def test_step_failure_propagated_to_client() -> None:
         # Expect the workflow to fail with a RuntimeError containing the original error
         with pytest.raises(WorkflowError) as exc_info:
             await client.run_workflow(
-                workflow_type=workflow_type,
-                workflow_id=workflow_id,
-                workflow_input={"name": test_name},
-                workflow_timeout=timedelta(seconds=30),
+                type=workflow_type,
+                id=workflow_id,
+                input={"name": test_name},
+                timeout=timedelta(seconds=30),
             )
 
         # Verify the error message contains information about the original failure
@@ -172,10 +172,10 @@ async def test_step_failure_in_step_handler() -> None:
 
         with pytest.raises(WorkflowError) as exc_info:
             await client.run_workflow(
-                workflow_type="StepFailingWorkflow",
-                workflow_id=workflow_id,
-                workflow_input={},
-                workflow_timeout=timedelta(seconds=30),
+                type="StepFailingWorkflow",
+                id=workflow_id,
+                input={},
+                timeout=timedelta(seconds=30),
             )
 
         error_message = str(exc_info.value)

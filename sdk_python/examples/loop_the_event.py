@@ -55,10 +55,10 @@ async def main() -> None:
     try:
         client = Client(connection=connection)
         wf_handle = await client.start_workflow(
-            workflow_type=lte.workflow_type,
-            workflow_id=str(ulid.ULID()),
-            workflow_input={"start_count": 0},
-            workflow_timeout=timedelta(seconds=30),
+            type=lte.workflow_type,
+            id=str(ulid.ULID()),
+            input={"start_count": 0},
+            timeout=timedelta(seconds=30),
         )
         for _ in range(100):
             await wf_handle.send("incr_step")

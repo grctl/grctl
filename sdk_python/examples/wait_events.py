@@ -80,10 +80,10 @@ async def main() -> None:
 
     try:
         wf_handle = await client.start_workflow(
-            workflow_type=greet_events.workflow_type,
-            workflow_id=str(ulid.ULID()),
-            workflow_input={"name": "Cem"},
-            workflow_timeout=timedelta(seconds=30),
+            type=greet_events.workflow_type,
+            id=str(ulid.ULID()),
+            input={"name": "Cem"},
+            timeout=timedelta(seconds=30),
         )
 
         await asyncio.sleep(1)

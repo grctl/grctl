@@ -139,10 +139,10 @@ async def test_failover_baseline() -> None:
 
     try:
         result = await client.run_workflow(
-            workflow_type=_WORKFLOW_TYPE,
-            workflow_id=str(ulid.ULID()),
-            workflow_input={},
-            workflow_timeout=timedelta(seconds=30),
+            type=_WORKFLOW_TYPE,
+            id=str(ulid.ULID()),
+            input={},
+            timeout=timedelta(seconds=30),
         )
         assert result == [10, 20, 30]
         assert execution_counter.value == 3
@@ -177,10 +177,10 @@ async def test_worker_failover_replays_completed_tasks() -> None:
 
     workflow_id = str(ulid.ULID())
     handle = await client.start_workflow(
-        workflow_type=_WORKFLOW_TYPE,
-        workflow_id=workflow_id,
-        workflow_input={},
-        workflow_timeout=timedelta(seconds=120),
+        type=_WORKFLOW_TYPE,
+        id=workflow_id,
+        input={},
+        timeout=timedelta(seconds=120),
     )
     run_id = handle.run_info.id
 

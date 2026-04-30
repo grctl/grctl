@@ -37,10 +37,10 @@ async def test_ltl_example() -> None:
         name = "Integration Tester"
 
         result = await client.run_workflow(
-            workflow_type=ltl.workflow_type,
-            workflow_id=workflow_id,
-            workflow_input={"start": 0},
-            workflow_timeout=timedelta(seconds=30),
+            type=ltl.workflow_type,
+            id=workflow_id,
+            input={"start": 0},
+            timeout=timedelta(seconds=30),
         )
 
         assert result == 1000

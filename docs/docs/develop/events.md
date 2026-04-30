@@ -36,9 +36,9 @@ From the client, send an event to the running workflow using its handle:
 
 ```python
 handle = await client.start_workflow(
-    workflow_type="ProcessOrder",
-    workflow_id="order-abc",
-    workflow_input={"order_id": "abc"},
+    type="ProcessOrder",
+    id="order-abc",
+    input={"order_id": "abc"},
 )
 
 # Later, send an event

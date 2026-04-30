@@ -283,10 +283,10 @@ async def test_serialization_primitives(case_name: str, workflow_input: Any, exp
     async with _worker_running(case_name) as (connection, client):
         workflow_id = str(ulid.ULID())
         handle = await client.start_workflow(
-            workflow_type=_workflow_type(case_name),
-            workflow_id=workflow_id,
-            workflow_input=workflow_input,
-            workflow_timeout=timedelta(seconds=30),
+            type=_workflow_type(case_name),
+            id=workflow_id,
+            input=workflow_input,
+            timeout=timedelta(seconds=30),
         )
 
         result = await asyncio.wait_for(handle.future, timeout=30.0)
@@ -322,10 +322,10 @@ async def test_serialization_dicts() -> None:
     async with _worker_running("dict") as (connection, client):
         workflow_id = str(ulid.ULID())
         handle = await client.start_workflow(
-            workflow_type=_workflow_type("dict"),
-            workflow_id=workflow_id,
-            workflow_input={"payload": inner},
-            workflow_timeout=timedelta(seconds=30),
+            type=_workflow_type("dict"),
+            id=workflow_id,
+            input={"payload": inner},
+            timeout=timedelta(seconds=30),
         )
 
         result = await asyncio.wait_for(handle.future, timeout=30.0)
@@ -356,10 +356,10 @@ async def test_serialization_dataclasses_round_trip_as_dicts() -> None:
     async with _worker_running("dataclass") as (connection, client):
         workflow_id = str(ulid.ULID())
         handle = await client.start_workflow(
-            workflow_type=_workflow_type("dataclass"),
-            workflow_id=workflow_id,
-            workflow_input={"payload": inner},
-            workflow_timeout=timedelta(seconds=30),
+            type=_workflow_type("dataclass"),
+            id=workflow_id,
+            input={"payload": inner},
+            timeout=timedelta(seconds=30),
         )
 
         result = await asyncio.wait_for(handle.future, timeout=30.0)
@@ -390,10 +390,10 @@ async def test_serialization_msgspec_structs_round_trip_as_dicts() -> None:
     async with _worker_running("struct") as (connection, client):
         workflow_id = str(ulid.ULID())
         handle = await client.start_workflow(
-            workflow_type=_workflow_type("struct"),
-            workflow_id=workflow_id,
-            workflow_input={"payload": inner},
-            workflow_timeout=timedelta(seconds=30),
+            type=_workflow_type("struct"),
+            id=workflow_id,
+            input={"payload": inner},
+            timeout=timedelta(seconds=30),
         )
 
         result = await asyncio.wait_for(handle.future, timeout=30.0)
@@ -419,10 +419,10 @@ async def test_serialization_pydantic_typed() -> None:
     inner = {"name": "typed-case", "count": 2, "tags": ["p", "q"]}
     async with _worker_running("pydantic_typed") as (_, client):
         handle = await client.start_workflow(
-            workflow_type=_workflow_type("pydantic_typed"),
-            workflow_id=str(ulid.ULID()),
-            workflow_input={"payload": inner},
-            workflow_timeout=timedelta(seconds=30),
+            type=_workflow_type("pydantic_typed"),
+            id=str(ulid.ULID()),
+            input={"payload": inner},
+            timeout=timedelta(seconds=30),
         )
 
         result = await asyncio.wait_for(handle.future, timeout=30.0)
@@ -439,10 +439,10 @@ async def test_serialization_pydantic_task_args() -> None:
     async with _worker_running("pydantic") as (connection, client):
         workflow_id = str(ulid.ULID())
         handle = await client.start_workflow(
-            workflow_type=_workflow_type("pydantic"),
-            workflow_id=workflow_id,
-            workflow_input={"payload": inner},
-            workflow_timeout=timedelta(seconds=30),
+            type=_workflow_type("pydantic"),
+            id=workflow_id,
+            input={"payload": inner},
+            timeout=timedelta(seconds=30),
         )
 
         result = await asyncio.wait_for(handle.future, timeout=30.0)

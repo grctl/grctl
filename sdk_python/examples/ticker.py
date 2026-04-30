@@ -60,10 +60,10 @@ async def run_start() -> None:
 
     client = Client(connection=connection)
     await client.start_workflow(
-        workflow_type=ticker.workflow_type,
-        workflow_id=WORKFLOW_ID,
-        workflow_input={"iterations": ITERATIONS},
-        workflow_timeout=timedelta(seconds=300),
+        type=ticker.workflow_type,
+        id=WORKFLOW_ID,
+        input={"iterations": ITERATIONS},
+        timeout=timedelta(seconds=300),
     )
     logger.info(f"Workflow {WORKFLOW_ID} submitted.")
     await connection.close()

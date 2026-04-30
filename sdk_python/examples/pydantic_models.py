@@ -106,10 +106,10 @@ async def main() -> None:
     client = Client(connection=connection)
     try:
         wf_handle = await client.start_workflow(
-            workflow_type=orders.workflow_type,
-            workflow_id=str(ulid.ULID()),
-            workflow_input=OrderRequest(order_id="ORD-001", customer="Alice", amount=99.99),
-            workflow_timeout=timedelta(seconds=30),
+            type=orders.workflow_type,
+            id=str(ulid.ULID()),
+            input=OrderRequest(order_id="ORD-001", customer="Alice", amount=99.99),
+            timeout=timedelta(seconds=30),
         )
 
         await asyncio.sleep(1)

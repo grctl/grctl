@@ -32,21 +32,21 @@ class Client:
 
     async def run_workflow(
         self,
-        workflow_type: str,
-        workflow_id: str,
-        workflow_input: Any | None = None,
-        workflow_timeout: timedelta | None = None,
+        type: str,  # noqa: A002
+        id: str,  # noqa: A002
+        input: Any | None = None,  # noqa: A002
+        timeout: timedelta | None = None,  # noqa: ASYNC109
     ) -> Any:
         """Run a workflow and wait for its result."""
         wf_handle = await self.start_workflow(
-            workflow_type=workflow_type,
-            workflow_id=workflow_id,
-            workflow_input=workflow_input,
-            workflow_timeout=workflow_timeout,
+            type=type,
+            id=id,
+            input=input,
+            timeout=timeout,
         )
-        timeout = workflow_timeout.total_seconds() if workflow_timeout else None
+        wait_timeout = timeout.total_seconds() if timeout else None
         try:
-            return await asyncio.wait_for(wf_handle.future, timeout=timeout)
+            return await asyncio.wait_for(wf_handle.future, timeout=wait_timeout)
         finally:
             await wf_handle.future.stop()
 
@@ -83,25 +83,25 @@ class Client:
 
     async def start_workflow(
         self,
-        workflow_type: str,
-        workflow_id: str,
-        workflow_input: Any | None = None,
-        workflow_timeout: timedelta | None = None,
+        type: str,  # noqa: A002
+        id: str,  # noqa: A002
+        input: Any | None = None,  # noqa: A002
+        timeout: timedelta | None = None,  # noqa: ASYNC109
     ) -> WorkflowHandle:
         """Start a workflow and return a handle to track and interact with it."""
         workflow_run_id = str(ULID())
 
         run_info = RunInfo(
             id=workflow_run_id,
-            wf_type=workflow_type,
-            wf_id=workflow_id,
-            timeout=int(workflow_timeout.total_seconds()) if workflow_timeout else None,
+            wf_type=type,
+            wf_id=id,
+            timeout=int(timeout.total_seconds()) if timeout else None,
             created_at=datetime.now(UTC),
         )
 
         handle = WorkflowHandle(
             run_info=run_info,
-            payload=workflow_input,
+            payload=input,
             connection=self._connection,
             codec=self._codec,
         )

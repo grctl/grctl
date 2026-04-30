@@ -37,10 +37,10 @@ async def test_hello_world_example_end_to_end() -> None:
         name = "World!"
 
         result = await client.run_workflow(
-            workflow_type=hello.workflow_type,
-            workflow_id=workflow_id,
-            workflow_input={"name": name},
-            workflow_timeout=timedelta(seconds=30),
+            type=hello.workflow_type,
+            id=workflow_id,
+            input={"name": name},
+            timeout=timedelta(seconds=30),
         )
 
         assert result == f"Hello, {name}!"

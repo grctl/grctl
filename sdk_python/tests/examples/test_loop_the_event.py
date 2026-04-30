@@ -31,10 +31,10 @@ async def test_wait_events_example_end_to_end() -> None:
         name = "Integration Tester"
 
         wf_handle = await client.start_workflow(
-            workflow_type=lte.workflow_type,
-            workflow_id=workflow_id,
-            workflow_input={"start_count": 900},
-            workflow_timeout=timedelta(seconds=300),
+            type=lte.workflow_type,
+            id=workflow_id,
+            input={"start_count": 900},
+            timeout=timedelta(seconds=300),
         )
 
         for _ in range(10):

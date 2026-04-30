@@ -7,28 +7,28 @@ Output demo.gif
 Require grctl
 
 Set Shell "bash"
-Set FontSize 18
-Set Width 1512
-Set Height 982
-Set Padding 10
+Set FontSize 32
+Set Width 3024
+Set Height 1964
+Set Padding 0
 
 # Show version
-Type "grctl version"
-Enter
-Sleep 1s
-Ctrl+L
+# Type "grctl version"
+# Enter
+# Sleep 1s
+# Ctrl+L
 
 # Show help
-Type "grctl --help"
-Enter
-Sleep 1.5s
-Ctrl+L
+# Type "grctl --help"
+# Enter
+# Sleep 1.5s
+# Ctrl+L
 
 # Show workflow subcommands
-Type "grctl workflow --help"
-Enter
-Sleep 1.5s
-Ctrl+L
+# Type "grctl workflow --help"
+# Enter
+# Sleep 1.5s
+# Ctrl+L
 
 # Start a Hello workflow
 Type "grctl workflow start --type Hello --input-file sdk_python/examples/hello_input.json"
@@ -37,18 +37,35 @@ Sleep 3s
 Ctrl+L
 
 # Start a Payment workflow with a custom ID
-Type "grctl workflow start --type Payment --id payment-ORDER-001 --input-file sdk_python/examples/payment_input.json"
-Enter
-Sleep 3s
-Ctrl+L
+# Type "grctl workflow start --type Payment --id payment-ORDER-001 --input-file sdk_python/examples/payment_input.json"
+# Enter
+# Sleep 3s
+# Ctrl+L
 
 # Open the workflow browser (TUI)
-Set Padding 0
 Type "grctl workflow list"
 Enter
-Sleep 3s
+Sleep 5s
 
 # Navigate down a few rows
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
 Down
 Sleep 300ms
 Down
@@ -58,16 +75,20 @@ Sleep 300ms
 
 # Press Enter to open workflow history
 Enter
-Sleep 2s
+Sleep 5s
 Enter
 
 # Navigate through history events
 Down
-Sleep 300ms
+Sleep 2s
 Down
-Sleep 300ms
+Sleep 2s
 Down
-Sleep 300ms
+Sleep 2s
+Down
+Sleep 2s
+Down
+Sleep 2s
 
 # Go back
 Escape

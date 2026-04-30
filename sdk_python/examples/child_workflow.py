@@ -134,10 +134,10 @@ async def main() -> None:
 
     try:
         order_handle = await client.start_workflow(
-            workflow_type=order_wf.workflow_type,
-            workflow_id=str(ulid.ULID()),
-            workflow_input={"order_id": "ORDER-001", "amount": 99.99},
-            workflow_timeout=timedelta(seconds=60),
+            type=order_wf.workflow_type,
+            id=str(ulid.ULID()),
+            input={"order_id": "ORDER-001", "amount": 99.99},
+            timeout=timedelta(seconds=60),
         )
         logger.info(f"Order workflow started with handle: {order_handle}")
 

@@ -176,10 +176,10 @@ async def test_start_replay_skips_duplicate_child_launch() -> None:
 
     workflow_id = str(ulid.ULID())
     parent_handle = await client.start_workflow(
-        workflow_type=_REPLAY_START_PARENT_WORKFLOW_TYPE,
-        workflow_id=workflow_id,
-        workflow_input={},
-        workflow_timeout=_WORKFLOW_TIMEOUT,
+        type=_REPLAY_START_PARENT_WORKFLOW_TYPE,
+        id=workflow_id,
+        input={},
+        timeout=_WORKFLOW_TIMEOUT,
     )
 
     try:
@@ -240,10 +240,10 @@ async def test_send_to_parent_replay_skips_duplicate_parent_event() -> None:
 
     workflow_id = str(ulid.ULID())
     parent_handle = await client.start_workflow(
-        workflow_type=_REPLAY_SEND_PARENT_WORKFLOW_TYPE,
-        workflow_id=workflow_id,
-        workflow_input={},
-        workflow_timeout=_WORKFLOW_TIMEOUT,
+        type=_REPLAY_SEND_PARENT_WORKFLOW_TYPE,
+        id=workflow_id,
+        input={},
+        timeout=_WORKFLOW_TIMEOUT,
     )
 
     try:

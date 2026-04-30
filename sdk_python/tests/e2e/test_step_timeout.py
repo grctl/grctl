@@ -61,10 +61,10 @@ async def test_step_timeout() -> None:
 
         with pytest.raises(WorkflowError) as exc_info:
             await client.run_workflow(
-                workflow_type="StepTimeoutWorkflow",
-                workflow_id=workflow_id,
-                workflow_input={},
-                workflow_timeout=timedelta(seconds=30),
+                type="StepTimeoutWorkflow",
+                id=workflow_id,
+                input={},
+                timeout=timedelta(seconds=30),
             )
 
         error_message = str(exc_info.value)

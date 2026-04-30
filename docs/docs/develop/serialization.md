@@ -36,9 +36,9 @@ The client passes the data in `workflow_input`. The engine deserializes each key
 
 ```python
 result = await client.run_workflow(
-    workflow_type="ProcessOrder",
-    workflow_id="order-123",
-    workflow_input={
+    type="ProcessOrder",
+    id="order-123",
+    input={
         "order_id": "abc",
         "items": [
             OrderItem(sku="WIDGET-1", qty=2, price=9.99),

@@ -28,10 +28,10 @@ async def test_child_workflow_example_end_to_end() -> None:
         workflow_id = str(ulid.ULID())
 
         order_handle = await client.start_workflow(
-            workflow_type=order_wf.workflow_type,
-            workflow_id=workflow_id,
-            workflow_input={"order_id": "ORDER-001", "amount": 99.99},
-            workflow_timeout=timedelta(seconds=30),
+            type=order_wf.workflow_type,
+            id=workflow_id,
+            input={"order_id": "ORDER-001", "amount": 99.99},
+            timeout=timedelta(seconds=30),
         )
 
         await asyncio.sleep(2)

@@ -26,10 +26,10 @@ async def test_wait_events_example_end_to_end() -> None:
         name = "World"
 
         wf_handle = await client.start_workflow(
-            workflow_type=greet_events.workflow_type,
-            workflow_id=workflow_id,
-            workflow_input={"name": name},
-            workflow_timeout=timedelta(seconds=30),
+            type=greet_events.workflow_type,
+            id=workflow_id,
+            input={"name": name},
+            timeout=timedelta(seconds=30),
         )
 
         await asyncio.sleep(1)
@@ -65,10 +65,10 @@ async def test_get_workflow_handle_cross_process() -> None:
     name = "World"
 
     wf_handle = await client_1.start_workflow(
-        workflow_type=greet_events.workflow_type,
-        workflow_id=workflow_id,
-        workflow_input={"name": name},
-        workflow_timeout=timedelta(seconds=30),
+        type=greet_events.workflow_type,
+        id=workflow_id,
+        input={"name": name},
+        timeout=timedelta(seconds=30),
     )
 
     # Wait for the workflow to reach its first wait_for_event state.

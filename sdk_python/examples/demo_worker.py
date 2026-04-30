@@ -7,11 +7,10 @@ Usage:
 import asyncio
 import logging
 
-from grctl.client import Connection, setup_logging
-from grctl.worker import Worker
-
 from examples.child_workflow import payment_wf
 from examples.hello_world import hello
+from grctl.client import Connection, setup_logging
+from grctl.worker import Worker
 
 setup_logging(level=logging.INFO)
 logger = logging.getLogger(__name__)

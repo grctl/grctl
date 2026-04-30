@@ -30,10 +30,10 @@ Use `run_workflow()` to start a workflow and block until it completes:
 
 ```python
 result = await client.run_workflow(
-    workflow_type="ProcessOrder",
-    workflow_id="order-abc-123",
-    workflow_input={"order_id": "abc-123", "amount": 49.99},
-    workflow_timeout=timedelta(minutes=5),
+    type="ProcessOrder",
+    id="order-abc-123",
+    input={"order_id": "abc-123", "amount": 49.99},
+    timeout=timedelta(minutes=5),
 )
 print(result)  # the value passed to ctx.next.complete(...)
 ```
@@ -59,10 +59,10 @@ Use `start_workflow()` when you need to send events to the workflow or don't wan
 
 ```python
 handle = await client.start_workflow(
-    workflow_type="ProcessOrder",
-    workflow_id="order-abc-123",
-    workflow_input={"order_id": "abc-123", "amount": 49.99},
-    workflow_timeout=timedelta(minutes=30),
+    type="ProcessOrder",
+    id="order-abc-123",
+    input={"order_id": "abc-123", "amount": 49.99},
+    timeout=timedelta(minutes=30),
 )
 ```
 
@@ -97,10 +97,10 @@ The future resolves to the value passed to `ctx.next.complete(result)` inside th
 
 ```python
 handle = await client.start_workflow(
-    workflow_type="GreetEvents",
-    workflow_id="greet-session-1",
-    workflow_input={"name": "Cem"},
-    workflow_timeout=timedelta(seconds=30),
+    type="GreetEvents",
+    id="greet-session-1",
+    input={"name": "Cem"},
+    timeout=timedelta(seconds=30),
 )
 
 await handle.send("greet")
@@ -140,10 +140,10 @@ See [Workflow ID and Runs](../workflows/#workflow-id-and-runs) for how workflow 
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `workflow_type` | `str` | — | The `workflow_type` string of the workflow to run. |
-| `workflow_id` | `str` | — | Stable caller-supplied identifier. Used for deduplication. |
-| `workflow_input` | `Any \| None` | `None` | Input passed to the workflow's start handler as keyword arguments. |
-| `workflow_timeout` | `timedelta \| None` | `None` | Maximum duration before the workflow is failed with `TimeoutError`. |
+| `type` | `str` | — | The `workflow_type` string of the workflow to run. |
+| `id` | `str` | — | Stable caller-supplied identifier. Used for deduplication. |
+| `input` | `Any \| None` | `None` | Input passed to the workflow's start handler as keyword arguments. |
+| `timeout` | `timedelta \| None` | `None` | Maximum duration before the workflow is failed with `TimeoutError`. |
 
 ### `WorkflowHandle`
 

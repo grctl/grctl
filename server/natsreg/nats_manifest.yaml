@@ -80,7 +80,6 @@ subjects:
       listen: grctl_worker_task.>
       queue_group: grctl_worker_{wf_type}
       purge: grctl_worker_task.*.{wf_id}.>
-
   bg_task:
     stream: grctl_state
     subject_patterns:

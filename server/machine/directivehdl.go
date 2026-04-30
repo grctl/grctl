@@ -70,7 +70,14 @@ func (dh *DirectiveHandler) applyFailure(ctx context.Context, d ext.Directive, c
 		slog.Error("failed to build failure updates", "error", err)
 		return intr.Processed()
 	}
-	result, _ := dh.applyStateUpdates(ctx, failureUpdates)
+
+	// If CAS rejection happens at that point, applyFailure will retry the failure updates.
+	// But concrete failure will be logged and the result will be processed.
+	result, err := dh.applyStateUpdates(ctx, failureUpdates)
+	if err != nil {
+		slog.Error("failed to apply failure updates", "error", err, "directiveID", d.ID)
+		return intr.Processed()
+	}
 	return result
 }
 

@@ -17,6 +17,7 @@ echo "Binary: bin/grctl"
 [tasks.dist]
 description = "Build cross-platform release archives to dist/"
 run = """
+#!/usr/bin/env bash
 VERSION=$(git describe --tags --always --dirty --match "v[0-9]*" 2>/dev/null || echo "dev")
 COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)

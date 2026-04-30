@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.3](https://github.com/cemevren/grctl/compare/grctl-sdk-python-v0.1.2...grctl-sdk-python-v0.1.3) (2026-04-30)
+
+
+### Bug Fixes
+
+* api client param rename ([#14](https://github.com/cemevren/grctl/issues/14)) ([aa1f635](https://github.com/cemevren/grctl/commit/aa1f63507c47a4b92ea3f52d53697a8e5779f955))
+* child workflow events ([#16](https://github.com/cemevren/grctl/issues/16)) ([3156e53](https://github.com/cemevren/grctl/commit/3156e53bd5e2f10e9b251e19a088aa162b019e10))
+* config ordering ([#12](https://github.com/cemevren/grctl/issues/12)) ([b06fd0c](https://github.com/cemevren/grctl/commit/b06fd0cf1246961dbacd5214f2601a4c6492fab8))
+* workflow terminal cleanup ([#13](https://github.com/cemevren/grctl/issues/13)) ([d71f5c7](https://github.com/cemevren/grctl/commit/d71f5c7105f6460f4e204b25b8713c9f1cb653fe))
+
 ## [0.1.2](https://github.com/cemevren/grctl/compare/grctl-sdk-python-v0.1.1...grctl-sdk-python-v0.1.2) (2026-04-28)
 
 

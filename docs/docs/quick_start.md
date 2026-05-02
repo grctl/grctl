@@ -5,7 +5,7 @@ title: Quick Start
 You can quickly scaffold a new Ground Control project by running our starter script. This will download the project into a `grctl-starter` directory.
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/cemevren/grctl-starter/main/init.sh | sh
+curl -LsSf https://raw.githubusercontent.com/grctl/grctl-starter/main/init.sh | sh
 ```
 
 Once the project is created, navigate into it:
@@ -49,7 +49,7 @@ If you prefer not to use `mise`, you can install the components manually:
 
 **1. Install the server and CLI:**
 ```bash
-curl -LsSf https://raw.githubusercontent.com/cemevren/grctl/sdk/packaging/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/grctl/grctl/sdk/packaging/install.sh | sh
 ```
 
 **2. Start the `grctld` server** (in your current terminal or a background tmux session):
@@ -97,4 +97,4 @@ This demonstrates the core grctl concepts: **workflows**, **tasks**, **context/s
 ## Next Steps
 
 - Add more workflows in the `workflows/` directory
-- Explore [Ground Control documentation](https://cemevren.github.io/grctl/)
+- Explore [Ground Control documentation](https://grctl.github.io/grctl/)

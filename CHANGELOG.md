@@ -1,12 +1,6 @@
 # Changelog
 
-## [0.2.0](https://github.com/grctl/grctl/compare/v0.1.2...v0.2.0) (2026-05-02)
-
-
-### Features
-
-* fix release please ([78d480f](https://github.com/grctl/grctl/commit/78d480f3f0d1732b439cddb54d557976eacca8c6))
-* init ([93b31fe](https://github.com/grctl/grctl/commit/93b31fea6dd334ff5d0307b4154ccbf1b23e21f2))
+## [0.1.2](https://github.com/grctl/grctl/compare/v0.1.0...v0.1.2) (2026-05-02)
 
 
 ### Bug Fixes
@@ -23,5 +17,7 @@
 * server dir structure ([#10](https://github.com/grctl/grctl/issues/10)) ([f9d0c34](https://github.com/grctl/grctl/commit/f9d0c345424d1739f9631f6bf2d73c01091ecfff))
 * task output encoding ([#5](https://github.com/grctl/grctl/issues/5)) ([34b6d1b](https://github.com/grctl/grctl/commit/34b6d1b4b3ef6ab58fe8a11c30ee3df3a655ee7f))
 * workflow terminal cleanup ([#13](https://github.com/grctl/grctl/issues/13)) ([d71f5c7](https://github.com/grctl/grctl/commit/d71f5c7105f6460f4e204b25b8713c9f1cb653fe))
+* fix release please ([78d480f](https://github.com/grctl/grctl/commit/78d480f3f0d1732b439cddb54d557976eacca8c6))
+* init ([93b31fe](https://github.com/grctl/grctl/commit/93b31fea6dd334ff5d0307b4154ccbf1b23e21f2))
 
 ## [0.1.0](https://github.com/grctl/grctl/compare/grctl/server-v0.0.1...grctl/server-v0.1.0) (2026-04-15)

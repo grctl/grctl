@@ -22,13 +22,12 @@ jobs:
 
       - name: Build all platforms
         run: mise run dist
-        working-directory: server
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: grctl-all-platforms
-          path: server/dist/
+          path: dist/
 
       - name: Publish nightly pre-release
         env:
@@ -40,4 +39,4 @@ jobs:
             --prerelease \
             --title "Nightly Build ($(date -u '+%Y-%m-%d'))" \
             --notes "Latest nightly build from main. Not intended for production use." \
-            server/dist/*
+            dist/*

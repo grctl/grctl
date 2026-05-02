@@ -21,24 +21,23 @@ jobs:
 
       - name: Verify dependencies
         run: |
-          cd server
           mise run tidy
           git diff --exit-code go.mod go.sum
 
       - name: Lint
-        run: mise run -C server lint
+        run: mise run lint
 
       - name: Run tests
-        run: mise run -C server test
+        run: mise run test
 
       - name: Build
-        run: mise run -C server build
+        run: mise run build
 
       - name: Upload Binary Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: grctl-linux-amd64
           path: |
-            server/bin/grctld
-            server/bin/grctl
+            bin/grctld
+            bin/grctl
           retention-days: 7

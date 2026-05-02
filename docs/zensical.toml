@@ -28,8 +28,8 @@ site_author = "@cemevren"
 # documentation you should set this.
 # Read more: https://zensical.org/docs/setup/basics/#site_url
 #site_url = "https://www.example.com/"
-repo_name="cemevren/grctl"
-repo_url= "https://github.com/cemevren/grctl"
+repo_name="grctl/grctl"
+repo_url= "https://github.com/grctl/grctl"
 
 # The copyright notice appears in the page footer and can contain an HTML
 # fragment.

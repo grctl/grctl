@@ -37,8 +37,10 @@ jobs:
         run: |
           gh release delete nightly --yes 2>/dev/null || true
           git push origin :refs/tags/nightly 2>/dev/null || true
+          git tag -d nightly 2>/dev/null || true
           gh release create nightly \
             --prerelease \
+            --target "$GITHUB_SHA" \
             --title "Nightly Build ($(date -u '+%Y-%m-%d'))" \
             --notes "Latest nightly build from main. Not intended for production use." \
             dist/*

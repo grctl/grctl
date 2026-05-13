@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0](https://github.com/grctl/grctl/compare/v0.1.1...v0.2.0) (2026-05-13)
+## [0.1.3](https://github.com/grctl/grctl/compare/v0.1.2...v0.1.3) (2026-05-13)
 
 
 ### Features

@@ -1,14 +1,14 @@
 # Changelog
 
-## [0.1.2](https://github.com/grctl/grctl/compare/v0.1.0...v0.1.2) (2026-05-02)
+## [0.1.3](https://github.com/grctl/grctl/compare/v0.1.2...v0.1.3) (2026-05-13)
 
 
 ### Bug Fixes
-
 * api client param rename ([#14](https://github.com/grctl/grctl/issues/14)) ([aa1f635](https://github.com/grctl/grctl/commit/aa1f63507c47a4b92ea3f52d53697a8e5779f955))
 * apply failure error path ([#15](https://github.com/grctl/grctl/issues/15)) ([5dd1907](https://github.com/grctl/grctl/commit/5dd1907e768defd6e9b9dc182da30bc3740e6fc6))
 * child workflow events ([#16](https://github.com/grctl/grctl/issues/16)) ([3156e53](https://github.com/grctl/grctl/commit/3156e53bd5e2f10e9b251e19a088aa162b019e10))
 * config ordering ([#12](https://github.com/grctl/grctl/issues/12)) ([b06fd0c](https://github.com/grctl/grctl/commit/b06fd0cf1246961dbacd5214f2601a4c6492fab8))
+* create run info ([#31](https://github.com/grctl/grctl/issues/31)) ([d6d1a5e](https://github.com/grctl/grctl/commit/d6d1a5ef4620326b53ee8f955e030c1caf798143))
 * gh workflows ([#19](https://github.com/grctl/grctl/issues/19)) ([98ca939](https://github.com/grctl/grctl/commit/98ca93959778b38ce5cc639f15ba9f0541f13fed))
 * lint ([#3](https://github.com/grctl/grctl/issues/3)) ([affb103](https://github.com/grctl/grctl/commit/affb103d9382dbef9b02d480c912102ba150ed8a))
 * next.complete error when called in event handler ([#8](https://github.com/grctl/grctl/issues/8)) ([cf96099](https://github.com/grctl/grctl/commit/cf96099267a979f86c4e0929f7b7db1d0f504d0a))
@@ -20,4 +20,4 @@
 * fix release please ([78d480f](https://github.com/grctl/grctl/commit/78d480f3f0d1732b439cddb54d557976eacca8c6))
 * init ([93b31fe](https://github.com/grctl/grctl/commit/93b31fea6dd334ff5d0307b4154ccbf1b23e21f2))
 
-## [0.1.0](https://github.com/grctl/grctl/compare/grctl/server-v0.0.1...grctl/server-v0.1.0) (2026-04-15)
+## [0.1.2](https://github.com/grctl/grctl/compare/v0.1.0...v0.1.2) (2026-05-02)

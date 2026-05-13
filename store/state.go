@@ -46,8 +46,8 @@ func NewStateStore(js jetstream.JetStream, stream jetstream.Stream) *StateStore 
 // Create stores a new workflow run.
 // Returns ErrWorkflowAlreadyRunning if there's already an active non-terminal run.
 func (s *StateStore) CreateRunInfo(ctx context.Context, info *ext.RunInfo) error {
-	// Check if there's an active run
-	ri, err := s.GetRunInfo(ctx, info.WFType, info.WFID, info.ID)
+	// Check if there's an active run for this workflow ID, regardless of run ID.
+	ri, _, err := s.GetRunByWFID(ctx, info.WFID)
 	if err != nil && !errors.Is(err, ErrWorkflowRunNotFound) {
 		return fmt.Errorf("failed to check running status: %w", err)
 	}

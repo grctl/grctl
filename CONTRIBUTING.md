@@ -31,12 +31,10 @@ We value reliability, predictability, and battle-tested patterns over clever sol
 All Pull Request(s) must contain an issue ID in the title or description (e.g., `fixes #123`). PRs that do not contain an issue ID will be automatically rejected.
 
 1.  **Fork the repo** and create your branch from `main`.
-2.  **Install dependencies**:
-    -   Server: `cd server && go mod download`
-    -   SDK Python: `cd sdk_python && uv sync`
+2.  **Install dependencies**: `go mod download`
 3.  **Follow the coding standards**:
-    -   Run `make lint` and `make fmt` in the respective directories.
-    -   Ensure all tests pass: `make test` (Server) or `make tests` (Python SDK).
+    -   Run `mise run lint` and `mise run fmt`.
+    -   Ensure all tests pass: `mise run test`.
 4.  **Add tests**: New features or bug fixes must include tests.
 5.  **Update documentation**: If you change behavior, update the relevant docs.
 

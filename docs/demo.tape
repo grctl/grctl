@@ -31,13 +31,13 @@ Set Padding 0
 # Ctrl+L
 
 # Start a Hello workflow
-Type "grctl workflow start --type Hello --input-file sdk_python/examples/hello_input.json"
+Type "grctl workflow start --type Hello --input-file sdk-python/examples/hello_input.json"
 Enter
 Sleep 3s
 Ctrl+L
 
 # Start a Payment workflow with a custom ID
-# Type "grctl workflow start --type Payment --id payment-ORDER-001 --input-file sdk_python/examples/payment_input.json"
+# Type "grctl workflow start --type Payment --id payment-ORDER-001 --input-file sdk-python/examples/payment_input.json"
 # Enter
 # Sleep 3s
 # Ctrl+L

@@ -186,6 +186,35 @@ func (p *HistoryBuilder) StepCompleted(d ext.Directive) (ext.HistoryEvent, error
 	return e, nil
 }
 
+func (p *HistoryBuilder) StepFailed(d ext.Directive) (ext.HistoryEvent, error) {
+	msg, ok := d.Msg.(*ext.StepResult)
+	if !ok {
+		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step failed event: expected StepResult but got %T", d.Msg)
+	}
+	stepName, err := msg.ProcStepName()
+	if err != nil {
+		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step failed event: %w", err)
+	}
+	failMsg, ok := msg.NextMsg.(*ext.Fail)
+	if !ok {
+		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step failed event: expected Fail next msg but got %T", msg.NextMsg)
+	}
+
+	e := ext.HistoryEvent{
+		WFID:      d.RunInfo.WFID,
+		RunID:     d.RunInfo.ID,
+		Timestamp: time.Now().UTC(),
+		Kind:      ext.HistoryKindStepFailed,
+		Msg: ext.StepFailed{
+			StepName:   stepName,
+			Error:      failMsg.Error,
+			DurationMS: msg.DurationMS,
+		},
+	}
+
+	return e, nil
+}
+
 func (p *HistoryBuilder) StepTimedout(d ext.Directive, currentState ext.RunState) (ext.HistoryEvent, error) {
 	msg, ok := d.Msg.(*ext.StepTimeout)
 	if !ok {

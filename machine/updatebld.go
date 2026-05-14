@@ -82,6 +82,14 @@ func (f *UpdateFactory) updatesFromStepResult(sn store.StateSnapshot, d ext.Dire
 		return nil, fmt.Errorf("expected StepResult message but got %T", d.Msg)
 	}
 
+	if msg.NextMsgKind == ext.DirectiveKindFail {
+		failUpdates, err := f.FailStep(d, sn.RunState)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build updates for failing step: %w", err)
+		}
+		return append(updates, failUpdates...), nil
+	}
+
 	completeUpdates, err := f.CompleteStep(d, sn.RunState)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build updates for completing step: %w", err)
@@ -502,6 +510,54 @@ func (f *UpdateFactory) FailRun(d ext.Directive, currentState ext.RunState) ([]s
 		return nil, fmt.Errorf("build purge run residue task: %w", err)
 	}
 	updates = append(updates, store.BackgroundTaskUpdate{Task: purgeTask})
+
+	return updates, nil
+}
+
+func (f *UpdateFactory) FailStep(d ext.Directive, currentState ext.RunState) ([]store.StateUpdate, error) {
+	updates := make([]store.StateUpdate, 0, 8)
+	msg, ok := d.Msg.(*ext.StepResult)
+	if !ok || msg == nil {
+		return nil, fmt.Errorf("can not create step failed state update: expected StepResult but got %T", d.Msg)
+	}
+	failMsg, ok := msg.NextMsg.(*ext.Fail)
+	if !ok || failMsg == nil {
+		return nil, fmt.Errorf("can not create step failed state update: expected Fail next msg but got %T", msg.NextMsg)
+	}
+
+	if msg.KVUpdates != nil {
+		updates = append(updates, store.KVUpdate{
+			WFID:    d.RunInfo.WFID,
+			RunID:   d.RunInfo.ID,
+			Updates: *msg.KVUpdates,
+		})
+	}
+
+	stepFailedEvent, err := NewHistoryBuilder().StepFailed(d)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create step failed history event: %w", err)
+	}
+	updates = append(updates, store.HistoryUpdate{History: stepFailedEvent})
+
+	timerID := ext.DeriveTimerID(currentState.ActiveDirectiveID, ext.TimerKindStepTimeout)
+	timerTask, err := ext.NewDeleteTimerTask(d.ID, d.RunInfo.WFID, ext.TimerKindStepTimeout, timerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create delete timer background task: %w", err)
+	}
+	updates = append(updates, store.BackgroundTaskUpdate{Task: timerTask})
+
+	failD := ext.Directive{
+		ID:        ext.DeriveNextDirectiveID(d.ID),
+		Timestamp: time.Now().UTC(),
+		Kind:      ext.DirectiveKindFail,
+		RunInfo:   d.RunInfo,
+		Msg:       failMsg,
+	}
+	runFailUpdates, err := f.FailRun(failD, currentState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create run failed state updates: %w", err)
+	}
+	updates = append(updates, runFailUpdates...)
 
 	return updates, nil
 }

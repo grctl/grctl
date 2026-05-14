@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/grctl/grctl/compare/v0.1.3...v0.2.0) (2026-05-14)
+
+
+### Features
+
+* add step failed directive ([#33](https://github.com/grctl/grctl/issues/33)) ([154e5e0](https://github.com/grctl/grctl/commit/154e5e010609eda19fd89d1be02a414d88cc43fd))
+
 ## [0.1.3](https://github.com/grctl/grctl/compare/v0.1.2...v0.1.3) (2026-05-13)
 
 

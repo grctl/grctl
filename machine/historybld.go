@@ -239,6 +239,21 @@ func (p *HistoryBuilder) StepTimedout(d ext.Directive, currentState ext.RunState
 	return e, nil
 }
 
+func (p *HistoryBuilder) WaitEventTimedOut(d ext.Directive) (ext.HistoryEvent, error) {
+	msg, ok := d.Msg.(*ext.WaitEventTimeout)
+	if !ok {
+		return ext.HistoryEvent{}, fmt.Errorf("cannot publish wait event timed out history event: expected WaitEventTimeout directive but got %T", d.Msg)
+	}
+
+	return ext.HistoryEvent{
+		WFID:      d.RunInfo.WFID,
+		RunID:     d.RunInfo.ID,
+		Timestamp: time.Now().UTC(),
+		Kind:      ext.HistoryKindWaitEventTimedOut,
+		Msg:       ext.WaitEventTimedOut{TimeoutStepName: msg.TimeoutStepName},
+	}, nil
+}
+
 func (p *HistoryBuilder) WaitEventStarted(d ext.Directive) (ext.HistoryEvent, error) {
 	_, ok := d.Msg.(*ext.WaitEvent)
 	if !ok {

@@ -125,6 +125,16 @@ func (f *UpdateFactory) updatesFromEvent(sn store.StateSnapshot, d ext.Directive
 	// Always transition the current inbox head while waiting for events.
 	// This preserves inbox order and keeps deleteFromInbox aligned with the processed directive.
 	if sn.RunState.Kind == ext.RunStateWaitEvent && sn.Event.ID != "" {
+		// Cancel the wait event timeout timer if one was set.
+		if sn.RunState.ActiveDirectiveID != "" {
+			timerID := ext.DeriveTimerID(sn.RunState.ActiveDirectiveID, ext.TimerKindWaitEventTimeout)
+			timerTask, err := ext.NewDeleteTimerTask(d.ID, d.RunInfo.WFID, ext.TimerKindWaitEventTimeout, timerID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create delete wait event timeout timer task: %w", err)
+			}
+			updates = append(updates, store.BackgroundTaskUpdate{Task: timerTask})
+		}
+
 		nextD := sn.Event
 		stepUpdates, err := f.StartStep(nextD, sn.RunState)
 		slog.Debug("Creating step updates for event received in WaitEvent state", "StepUpdates", stepUpdates)
@@ -165,6 +175,8 @@ func (f *UpdateFactory) buildTransitionUpdates(d ext.Directive, currentState ext
 		return f.StartStep(d, currentState)
 	case ext.DirectiveKindStepTimeout:
 		return f.BuildStepTimeout(d, currentState)
+	case ext.DirectiveKindWaitEventTimeout:
+		return f.BuildWaitEventTimeout(d, currentState)
 	case ext.DirectiveKindComplete:
 		return f.CompleteRun(d, currentState)
 	case ext.DirectiveKindFail:
@@ -327,7 +339,7 @@ func (f *UpdateFactory) CompleteStep(d ext.Directive, currentState ext.RunState)
 }
 
 func (f *UpdateFactory) WaitEvent(d ext.Directive, currentState ext.RunState) ([]store.StateUpdate, error) {
-	updates := make([]store.StateUpdate, 0, 3)
+	updates := make([]store.StateUpdate, 0, 4)
 	msg, ok := d.Msg.(*ext.WaitEvent)
 	if !ok || msg == nil {
 		return nil, fmt.Errorf("can not create wait event state update: expected WaitEvent but got %T", d.Msg)
@@ -350,6 +362,15 @@ func (f *UpdateFactory) WaitEvent(d ext.Directive, currentState ext.RunState) ([
 	runState.Kind = ext.RunStateWaitEvent
 	runState.EnteredAt = time.Now().UTC()
 	runState.ActiveDirectiveID = ""
+
+	if msg.TimeoutStepName != "" {
+		timer, err := createWaitEventTimeoutTimer(d, msg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create wait event timeout timer: %w", err)
+		}
+		updates = append(updates, store.TimerUpdate{Timer: timer})
+		runState.ActiveDirectiveID = d.ID
+	}
 
 	updates = append(updates, store.RunStateUpdate{
 		State:       runState,
@@ -622,6 +643,53 @@ func (f *UpdateFactory) StepTimeoutFailure(d ext.Directive, stepName string, cur
 	}
 
 	return f.FailRun(failDirective, currentState)
+}
+
+func (f *UpdateFactory) BuildWaitEventTimeout(d ext.Directive, currentState ext.RunState) ([]store.StateUpdate, error) {
+	msg, ok := d.Msg.(*ext.WaitEventTimeout)
+	if !ok {
+		return nil, fmt.Errorf("can not create wait event timeout updates: expected WaitEventTimeout but got %T", d.Msg)
+	}
+
+	if currentState.Kind != ext.RunStateWaitEvent || currentState.ActiveDirectiveID != msg.OriginalDirectiveID {
+		return nil, ErrStaleDirective
+	}
+
+	updates := make([]store.StateUpdate, 0, 4)
+
+	he, err := NewHistoryBuilder().WaitEventTimedOut(d)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create wait event timed out history event: %w", err)
+	}
+	updates = append(updates, store.HistoryUpdate{History: he})
+
+	stepD := ext.Directive{
+		ID:        ext.DeriveNextDirectiveID(d.ID),
+		Timestamp: time.Now().UTC(),
+		Kind:      ext.DirectiveKindStep,
+		RunInfo:   d.RunInfo,
+		Msg:       &ext.Step{Name: msg.TimeoutStepName},
+	}
+	stepUpdates, err := f.StartStep(stepD, currentState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start timeout step %q: %w", msg.TimeoutStepName, err)
+	}
+	updates = append(updates, stepUpdates...)
+
+	return updates, nil
+}
+
+func createWaitEventTimeoutTimer(d ext.Directive, msg *ext.WaitEvent) (ext.Timer, error) {
+	now := time.Now().UTC()
+	return ext.Timer{
+		ID:        ext.DeriveTimerID(d.ID, ext.TimerKindWaitEventTimeout),
+		Kind:      ext.TimerKindWaitEventTimeout,
+		WFID:      d.RunInfo.WFID,
+		CreatedAt: now,
+		ExpiresAt: now.Add(time.Duration(msg.Timeout) * time.Millisecond),
+		StepName:  msg.TimeoutStepName,
+		Directive: d,
+	}, nil
 }
 
 func createStepTimeoutTimer(d ext.Directive) (ext.Timer, error) {

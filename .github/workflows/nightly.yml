@@ -5,6 +5,9 @@ on:
     - cron: "0 2 * * *" # Every night at 02:00 UTC
   workflow_dispatch: # Allows manual trigger for testing the workflow
 
+permissions:
+  contents: read
+
 jobs:
   cross-platform-build:
     name: Cross-platform Server Build

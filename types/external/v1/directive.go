@@ -45,7 +45,8 @@ const DirectiveKindSleepUntil DirectiveKind = "sleep_until"
 const DirectiveKindStep DirectiveKind = "step"
 
 // Timeout directives
-const DirectiveKindStepTimeout DirectiveKind = "step_timeout"
+const DirectiveKindStepTimeout        DirectiveKind = "step_timeout"
+const DirectiveKindWaitEventTimeout   DirectiveKind = "wait_event_timeout"
 
 type DispatchableMessage interface {
 	StepName() string
@@ -86,6 +87,11 @@ func (s Step) TimeoutMS() uint32 {
 type StepTimeout struct {
 	StepName            string      `json:"step_name" msgpack:"step_name"`
 	OriginalDirectiveID DirectiveID `json:"original_directive_id,omitempty" msgpack:"original_directive_id,omitempty"`
+}
+
+type WaitEventTimeout struct {
+	TimeoutStepName     string      `json:"timeout_step_name" msgpack:"timeout_step_name"`
+	OriginalDirectiveID DirectiveID `json:"original_directive_id" msgpack:"original_directive_id"`
 }
 
 type WaitEvent struct {
@@ -238,8 +244,9 @@ func (Step) isDirectiveMessage()        {}
 func (WaitEvent) isDirectiveMessage()   {}
 func (Sleep) isDirectiveMessage()       {}
 func (SleepUntil) isDirectiveMessage()  {}
-func (StepResult) isDirectiveMessage()  {}
-func (StepTimeout) isDirectiveMessage() {}
+func (StepResult) isDirectiveMessage()        {}
+func (StepTimeout) isDirectiveMessage()       {}
+func (WaitEventTimeout) isDirectiveMessage()  {}
 
 type Directive struct {
 	ID        DirectiveID      `json:"id" msgpack:"id"`
@@ -262,7 +269,8 @@ var DirectiveFactories = map[DirectiveKind]func() DirectiveMessage{
 	DirectiveKindSleep:       func() DirectiveMessage { return &Sleep{} },
 	DirectiveKindSleepUntil:  func() DirectiveMessage { return &SleepUntil{} },
 	DirectiveKindStepResult:  func() DirectiveMessage { return &StepResult{} },
-	DirectiveKindStepTimeout: func() DirectiveMessage { return &StepTimeout{} },
+	DirectiveKindStepTimeout:      func() DirectiveMessage { return &StepTimeout{} },
+	DirectiveKindWaitEventTimeout: func() DirectiveMessage { return &WaitEventTimeout{} },
 }
 
 // directiveWire is the internal wire format with short field names for compact encoding

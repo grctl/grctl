@@ -24,8 +24,9 @@ const HistoryKindStepFailed HistoryKind = "step.failed"
 const HistoryKindStepStarted HistoryKind = "step.started"
 const HistoryKindStepTimeout HistoryKind = "step.timeout"
 
-const HistoryKindWaitEventStarted HistoryKind = "wait_event.started"
-const HistoryKindEventReceived HistoryKind = "event.received"
+const HistoryKindWaitEventStarted  HistoryKind = "wait_event.started"
+const HistoryKindWaitEventTimedOut HistoryKind = "wait_event.timed_out"
+const HistoryKindEventReceived     HistoryKind = "event.received"
 
 const HistoryKindTaskCancelled HistoryKind = "task.cancelled"
 const HistoryKindTaskCompleted HistoryKind = "task.completed"
@@ -120,6 +121,10 @@ type StepTimedout struct {
 }
 
 type WaitEventStarted struct{}
+
+type WaitEventTimedOut struct {
+	TimeoutStepName string `json:"timeout_step_name" msgpack:"timeout_step_name"`
+}
 
 type EventReceived struct {
 	EventName string `json:"event_name" msgpack:"event_name"`
@@ -217,7 +222,8 @@ func (StepFailed) isHistoryMessage()    {}
 func (StepCancelled) isHistoryMessage() {}
 func (StepTimedout) isHistoryMessage()  {}
 
-func (WaitEventStarted) isHistoryMessage() {}
+func (WaitEventStarted) isHistoryMessage()  {}
+func (WaitEventTimedOut) isHistoryMessage() {}
 func (EventReceived) isHistoryMessage()    {}
 
 func (TaskStarted) isHistoryMessage()       {}
@@ -249,8 +255,9 @@ var historyMessageFactories = map[HistoryKind]func() HistoryMessage{
 	HistoryKindStepCancelled: func() HistoryMessage { return &StepCancelled{} },
 	HistoryKindStepTimeout:   func() HistoryMessage { return &StepTimedout{} },
 
-	HistoryKindWaitEventStarted: func() HistoryMessage { return &WaitEventStarted{} },
-	HistoryKindEventReceived:    func() HistoryMessage { return &EventReceived{} },
+	HistoryKindWaitEventStarted:  func() HistoryMessage { return &WaitEventStarted{} },
+	HistoryKindWaitEventTimedOut: func() HistoryMessage { return &WaitEventTimedOut{} },
+	HistoryKindEventReceived:     func() HistoryMessage { return &EventReceived{} },
 
 	HistoryKindTaskStarted:       func() HistoryMessage { return &TaskStarted{} },
 	HistoryKindTaskCompleted:     func() HistoryMessage { return &TaskCompleted{} },

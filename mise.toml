@@ -55,7 +55,7 @@ done
 [tasks.start]
 description = "Build and run the server daemon"
 depends = ["build"]
-run = "./bin/grctld -l debug"
+run = "./bin/grctld -l debug --store-dir ./data"
 
 [tasks.dev]
 description = "Run with auto-reload (air)"

@@ -3,7 +3,7 @@ testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  args_bin = ["-c", "../config/grctl.yaml", "--in-memory"]
+  args_bin = ["--store-dir ./data", "--in-memory"]
   bin = "./tmp/main"
   cmd = "go build -o ./tmp/main ./grctld"
   delay = 1000

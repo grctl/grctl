@@ -25,8 +25,9 @@ type RunState struct {
 	EnteredAt      time.Time    `json:"entered_at" msgpack:"entered_at"`
 	StartedAt      *time.Time   `json:"started_at,omitempty" msgpack:"started_at,omitempty"`
 	LastEventSeqID uint64       `json:"last_event_seq_id" msgpack:"last_event_seq_id"`
-	// ActiveDirectiveID is the ID of the directive that caused the current RunStateStep.
-	// Non-empty only when Kind == RunStateStep. Used to detect stale step timeout directives.
+	// ActiveDirectiveID is the ID of the directive that caused the current RunStateStep or RunStateWaitEvent.
+	// Non-empty when Kind == RunStateStep, or Kind == RunStateWaitEvent with a timeout configured.
+	// Used to detect stale timeout directives.
 	ActiveDirectiveID DirectiveID `json:"active_directive_id,omitempty" msgpack:"active_directive_id,omitempty"`
 
 	// SeqID is the NATS stream sequence of the entry. Populated on read, not serialized.

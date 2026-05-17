@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/grctl/grctl/compare/v0.2.0...v0.2.1) (2026-05-17)
+
+
+### Bug Fixes
+
+* wait event timeout ([#36](https://github.com/grctl/grctl/issues/36)) ([ee5bba7](https://github.com/grctl/grctl/commit/ee5bba7e3a9d2fea6b67ab5ea3bca9dded506291))
+
 ## [0.2.0](https://github.com/grctl/grctl/compare/v0.1.3...v0.2.0) (2026-05-14)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/grctl/grctl/compare/v0.3.0...v0.3.1) (2026-05-18)
+
+
+### Bug Fixes
+
+* mise file ([#39](https://github.com/grctl/grctl/issues/39)) ([b1a66e5](https://github.com/grctl/grctl/commit/b1a66e59e82b6e059877d5b5c017efb05002bbf8))
+
 ## [0.3.0](https://github.com/grctl/grctl/compare/v0.2.0...v0.3.0) (2026-05-18)
 
 

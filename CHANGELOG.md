@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/grctl/grctl/compare/v0.2.0...v0.3.0) (2026-05-18)
+
+
+### Features
+
+* new wait state ([#38](https://github.com/grctl/grctl/issues/38)) ([e181108](https://github.com/grctl/grctl/commit/e18110876832fe528d248438ac3ff89f22c35de8))
+
+
+### Bug Fixes
+
+* wait event timeout ([#36](https://github.com/grctl/grctl/issues/36)) ([ee5bba7](https://github.com/grctl/grctl/commit/ee5bba7e3a9d2fea6b67ab5ea3bca9dded506291))
+
 ## [0.2.0](https://github.com/grctl/grctl/compare/v0.1.3...v0.2.0) (2026-05-14)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/grctl/grctl/compare/v0.3.1...v0.3.2) (2026-05-29)
+
+
+### Bug Fixes
+
+* inbox refactoring ([#42](https://github.com/grctl/grctl/issues/42)) ([3bda532](https://github.com/grctl/grctl/commit/3bda532eff2528d036a433b6b86dea37a3f31626))
+
 ## [0.3.1](https://github.com/grctl/grctl/compare/v0.3.0...v0.3.1) (2026-05-18)
 
 

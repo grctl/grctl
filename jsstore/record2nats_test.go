@@ -1,7 +1,8 @@
-package store
+package jsstore
 
 import (
 	"grctl/server/natsreg"
+	models "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 	"strings"
 	"testing"
@@ -12,20 +13,20 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type UpdateBldSuite struct {
+type Record2NatsSuite struct {
 	suite.Suite
 }
 
-func TestUpdateBld(t *testing.T) {
-	suite.Run(t, new(UpdateBldSuite))
+func TestRecord2Nats(t *testing.T) {
+	suite.Run(t, new(Record2NatsSuite))
 }
 
-func (s *UpdateBldSuite) TestRunInfoUpdate_Subject() {
+func (s *Record2NatsSuite) TestRunInfoRecord_Subject() {
 	wfType := ext.NewWFType("mytype")
 	wfID := ext.NewWFID()
 	runID := ext.NewRunID()
 
-	u := RunInfoUpdate{
+	r := models.RunInfoRecord{
 		Info: ext.RunInfo{
 			WFType: wfType,
 			WFID:   wfID,
@@ -33,7 +34,7 @@ func (s *UpdateBldSuite) TestRunInfoUpdate_Subject() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := RunInfoRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -41,8 +42,8 @@ func (s *UpdateBldSuite) TestRunInfoUpdate_Subject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestRunInfoUpdate_ExpectedSeqHeaderSetWhenNonZero() {
-	u := RunInfoUpdate{
+func (s *Record2NatsSuite) TestRunInfoRecord_ExpectedSeqHeaderSetWhenNonZero() {
+	r := models.RunInfoRecord{
 		Info: ext.RunInfo{
 			WFType: ext.NewWFType("t"),
 			WFID:   ext.NewWFID(),
@@ -51,13 +52,13 @@ func (s *UpdateBldSuite) TestRunInfoUpdate_ExpectedSeqHeaderSetWhenNonZero() {
 		ExpectedSeq: 7,
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := RunInfoRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Equal(s.T(), "7", msgs[0].Header.Get("Nats-Expected-Last-Subject-Sequence"))
 }
 
-func (s *UpdateBldSuite) TestRunInfoUpdate_NoExpectedSeqHeaderWhenZero() {
-	u := RunInfoUpdate{
+func (s *Record2NatsSuite) TestRunInfoRecord_NoExpectedSeqHeaderWhenZero() {
+	r := models.RunInfoRecord{
 		Info: ext.RunInfo{
 			WFType: ext.NewWFType("t"),
 			WFID:   ext.NewWFID(),
@@ -65,22 +66,22 @@ func (s *UpdateBldSuite) TestRunInfoUpdate_NoExpectedSeqHeaderWhenZero() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := RunInfoRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Nil(s.T(), msgs[0].Header)
 }
 
-func (s *UpdateBldSuite) TestRunInputUpdate_Subject() {
+func (s *Record2NatsSuite) TestRunInputRecord_Subject() {
 	wfID := ext.NewWFID()
 	runID := ext.NewRunID()
 
-	u := RunInputUpdate{
+	r := models.RunInputRecord{
 		WFID:  wfID,
 		RunID: runID,
 		Input: "hello",
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := RunInputRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -88,17 +89,17 @@ func (s *UpdateBldSuite) TestRunInputUpdate_Subject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestRunOutputUpdate_Subject() {
+func (s *Record2NatsSuite) TestRunOutputRecord_Subject() {
 	wfID := ext.NewWFID()
 	runID := ext.NewRunID()
 
-	u := RunOutputUpdate{
+	r := models.RunOutputRecord{
 		WFID:   wfID,
 		RunID:  runID,
 		Result: "result",
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := RunOutputRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -106,17 +107,17 @@ func (s *UpdateBldSuite) TestRunOutputUpdate_Subject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestRunErrorUpdate_Subject() {
+func (s *Record2NatsSuite) TestRunErrorRecord_Subject() {
 	wfID := ext.NewWFID()
 	runID := ext.NewRunID()
 
-	u := RunErrorUpdate{
+	r := models.RunErrorRecord{
 		WFID:  wfID,
 		RunID: runID,
 		Error: ext.ErrorDetails{Type: "TestError", Message: "something failed"},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := RunErrorRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -124,11 +125,11 @@ func (s *UpdateBldSuite) TestRunErrorUpdate_Subject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestRunStateUpdate_Subject() {
+func (s *Record2NatsSuite) TestRunStateRecord_Subject() {
 	wfID := ext.NewWFID()
 	runID := ext.NewRunID()
 
-	u := RunStateUpdate{
+	r := models.RunStateRecord{
 		State: ext.RunState{
 			WFID:  wfID,
 			RunID: runID,
@@ -136,7 +137,7 @@ func (s *UpdateBldSuite) TestRunStateUpdate_Subject() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := RunStateRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -144,8 +145,8 @@ func (s *UpdateBldSuite) TestRunStateUpdate_Subject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestRunStateUpdate_ExpectedSeqHeader() {
-	u := RunStateUpdate{
+func (s *Record2NatsSuite) TestRunStateRecord_ExpectedSeqHeader() {
+	r := models.RunStateRecord{
 		State: ext.RunState{
 			WFID:  ext.NewWFID(),
 			RunID: ext.NewRunID(),
@@ -153,39 +154,39 @@ func (s *UpdateBldSuite) TestRunStateUpdate_ExpectedSeqHeader() {
 		ExpectedSeq: 3,
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := RunStateRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Equal(s.T(), "3", msgs[0].Header.Get("Nats-Expected-Last-Subject-Sequence"))
 }
 
-func (s *UpdateBldSuite) TestRunStateUpdate_ErrorOnEmptyWFID() {
-	u := RunStateUpdate{
+func (s *Record2NatsSuite) TestRunStateRecord_ErrorOnEmptyWFID() {
+	r := models.RunStateRecord{
 		State: ext.RunState{
 			RunID: ext.NewRunID(),
 		},
 	}
 
-	_, err := u.ToNatsMsgs()
+	_, err := RunStateRecordToNatsMsgs(r)
 	require.Error(s.T(), err)
 }
 
-func (s *UpdateBldSuite) TestRunStateUpdate_ErrorOnEmptyRunID() {
-	u := RunStateUpdate{
+func (s *Record2NatsSuite) TestRunStateRecord_ErrorOnEmptyRunID() {
+	r := models.RunStateRecord{
 		State: ext.RunState{
 			WFID: ext.NewWFID(),
 		},
 	}
 
-	_, err := u.ToNatsMsgs()
+	_, err := RunStateRecordToNatsMsgs(r)
 	require.Error(s.T(), err)
 }
 
-func (s *UpdateBldSuite) TestTimerUpdate_Subject() {
+func (s *Record2NatsSuite) TestTimerRecord_Subject() {
 	wfID := ext.NewWFID()
 	kind := ext.TimerKindStepTimeout
 	timerID := ext.NewTimerID()
 
-	u := TimerUpdate{
+	r := models.TimerRecord{
 		Timer: ext.Timer{
 			ID:        timerID,
 			WFID:      wfID,
@@ -194,7 +195,7 @@ func (s *UpdateBldSuite) TestTimerUpdate_Subject() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := TimerRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -202,8 +203,8 @@ func (s *UpdateBldSuite) TestTimerUpdate_Subject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestTimerUpdate_ScheduleHeaderContainsAtAt() {
-	u := TimerUpdate{
+func (s *Record2NatsSuite) TestTimerRecord_ScheduleHeaderContainsAtAt() {
+	r := models.TimerRecord{
 		Timer: ext.Timer{
 			WFID:      ext.NewWFID(),
 			Kind:      ext.TimerKindWaitTimeout,
@@ -211,15 +212,15 @@ func (s *UpdateBldSuite) TestTimerUpdate_ScheduleHeaderContainsAtAt() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := TimerRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 
 	schedule := msgs[0].Header.Get("Nats-Schedule")
 	require.True(s.T(), strings.HasPrefix(schedule, "@at "), "Nats-Schedule should start with '@at ', got: %s", schedule)
 }
 
-func (s *UpdateBldSuite) TestTimerUpdate_ScheduleTargetIsSet() {
-	u := TimerUpdate{
+func (s *Record2NatsSuite) TestTimerRecord_ScheduleTargetIsSet() {
+	r := models.TimerRecord{
 		Timer: ext.Timer{
 			WFID:      ext.NewWFID(),
 			Kind:      ext.TimerKindWaitTimeout,
@@ -227,18 +228,18 @@ func (s *UpdateBldSuite) TestTimerUpdate_ScheduleTargetIsSet() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := TimerRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 
 	target := msgs[0].Header.Get("Nats-Schedule-Target")
 	require.Equal(s.T(), natsreg.Manifest.TimerFiredSubject(), target)
 }
 
-func (s *UpdateBldSuite) TestHistoryUpdate_Subject() {
+func (s *Record2NatsSuite) TestHistoryRecord_Subject() {
 	wfID := ext.NewWFID()
 	runID := ext.NewRunID()
 
-	u := HistoryUpdate{
+	r := models.HistoryRecord{
 		History: ext.HistoryEvent{
 			WFID:  wfID,
 			RunID: runID,
@@ -247,7 +248,7 @@ func (s *UpdateBldSuite) TestHistoryUpdate_Subject() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := HistoryRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -255,10 +256,10 @@ func (s *UpdateBldSuite) TestHistoryUpdate_Subject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestInboxUpdate_EventKindUsesEventInboxSubject() {
+func (s *Record2NatsSuite) TestInboxRecord_EventKindUsesEventInboxSubject() {
 	wfID := ext.NewWFID()
 
-	u := InboxUpdate{
+	r := models.InboxRecord{
 		Directive: ext.Directive{
 			Kind: ext.DirectiveKindEvent,
 			RunInfo: ext.RunInfo{
@@ -267,7 +268,7 @@ func (s *UpdateBldSuite) TestInboxUpdate_EventKindUsesEventInboxSubject() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := InboxRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -275,10 +276,10 @@ func (s *UpdateBldSuite) TestInboxUpdate_EventKindUsesEventInboxSubject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestInboxUpdate_CancelKindUsesCancelInboxSubject() {
+func (s *Record2NatsSuite) TestInboxRecord_CancelKindUsesCancelInboxSubject() {
 	wfID := ext.NewWFID()
 
-	u := InboxUpdate{
+	r := models.InboxRecord{
 		Directive: ext.Directive{
 			Kind: ext.DirectiveKindCancel,
 			RunInfo: ext.RunInfo{
@@ -287,7 +288,7 @@ func (s *UpdateBldSuite) TestInboxUpdate_CancelKindUsesCancelInboxSubject() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := InboxRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -295,20 +296,20 @@ func (s *UpdateBldSuite) TestInboxUpdate_CancelKindUsesCancelInboxSubject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestKVUpdate_OneMessagePerKey() {
+func (s *Record2NatsSuite) TestKVRecord_OneMessagePerKey() {
 	wfID := ext.NewWFID()
 	runID := ext.NewRunID()
 
-	u := KVUpdate{
+	r := models.KVRecord{
 		WFID:  wfID,
 		RunID: runID,
-		Updates: map[string]any{
+		KVMap: map[string]any{
 			"key1": "value1",
 			"key2": 42,
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := KVRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 2)
 
@@ -321,24 +322,24 @@ func (s *UpdateBldSuite) TestKVUpdate_OneMessagePerKey() {
 	require.Contains(s.T(), subjects, natsreg.Manifest.WfKVKey(wfID, runID, "key2"))
 }
 
-func (s *UpdateBldSuite) TestKVUpdate_EmptyUpdatesReturnsNoMessages() {
-	u := KVUpdate{
-		WFID:    ext.NewWFID(),
-		RunID:   ext.NewRunID(),
-		Updates: map[string]any{},
+func (s *Record2NatsSuite) TestKVRecord_EmptyMapReturnsNoMessages() {
+	r := models.KVRecord{
+		WFID:  ext.NewWFID(),
+		RunID: ext.NewRunID(),
+		KVMap: map[string]any{},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := KVRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Empty(s.T(), msgs)
 }
 
-func (s *UpdateBldSuite) TestWorkerTaskDispatch_Subject() {
+func (s *Record2NatsSuite) TestWorkerTaskDispatch_Subject() {
 	wfType := ext.NewWFType("mytype")
 	wfID := ext.NewWFID()
 	runID := ext.NewRunID()
 
-	u := WorkerTaskDispatch{
+	r := models.WorkerTaskDispatch{
 		Directive: ext.Directive{
 			RunInfo: ext.RunInfo{
 				WFType: wfType,
@@ -348,7 +349,7 @@ func (s *UpdateBldSuite) TestWorkerTaskDispatch_Subject() {
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := WorkerTaskDispatchToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
@@ -356,32 +357,32 @@ func (s *UpdateBldSuite) TestWorkerTaskDispatch_Subject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestBackgroundTaskUpdate_Subject() {
-	u := BackgroundTaskUpdate{
+func (s *Record2NatsSuite) TestBackgroundTaskRecord_Subject() {
+	r := models.BackgroundTaskRecord{
 		Task: ext.BackgroundTask{
 			Kind:            ext.BackgroundTaskKindDeleteTimer,
 			DeduplicationID: ext.NewDirectiveID(),
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := BackgroundTaskRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 	require.Len(s.T(), msgs, 1)
 
 	require.Equal(s.T(), natsreg.Manifest.BgTaskSubject(), msgs[0].Subject)
 }
 
-func (s *UpdateBldSuite) TestBackgroundTaskUpdate_DeduplicationIDHeader() {
+func (s *Record2NatsSuite) TestBackgroundTaskRecord_DeduplicationIDHeader() {
 	dedupID := ext.NewDirectiveID()
 
-	u := BackgroundTaskUpdate{
+	r := models.BackgroundTaskRecord{
 		Task: ext.BackgroundTask{
 			Kind:            ext.BackgroundTaskKindDeleteTimer,
 			DeduplicationID: dedupID,
 		},
 	}
 
-	msgs, err := u.ToNatsMsgs()
+	msgs, err := BackgroundTaskRecordToNatsMsgs(r)
 	require.NoError(s.T(), err)
 
 	require.Equal(s.T(), string(dedupID), msgs[0].Header.Get(nats.MsgIdHdr))

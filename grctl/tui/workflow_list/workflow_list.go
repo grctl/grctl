@@ -9,8 +9,8 @@ import (
 
 	"grctl/server/grctl/tui/common"
 	"grctl/server/grctl/tui/table"
+	"grctl/server/jsstore"
 	"grctl/server/natsreg"
-	"grctl/server/store"
 	ext "grctl/server/types/external/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -27,7 +27,7 @@ type WorkflowListModel struct {
 	serverURL string
 	header    common.Header
 	nc        *nats.Conn
-	store     *store.StateStore
+	store     *jsstore.JSStateStore
 	statusCh  chan bool
 	width     int
 	height    int
@@ -36,7 +36,7 @@ type WorkflowListModel struct {
 type workflowsLoadedMsg struct {
 	runs     []*ext.RunInfo
 	nc       *nats.Conn
-	store    *store.StateStore
+	store    *jsstore.JSStateStore
 	statusCh chan bool
 	err      error
 }
@@ -252,7 +252,7 @@ func loadWorkflows(serverURL string) tea.Cmd {
 			return workflowsLoadedMsg{err: fmt.Errorf("failed to bind to state stream: %w", err)}
 		}
 
-		runStore := store.NewStateStore(js, stream)
+		runStore := jsstore.NewJSStateStore(js, stream)
 		runs, err := runStore.ListRuns(context.Background())
 		if err != nil {
 			nc.Close()
@@ -263,7 +263,7 @@ func loadWorkflows(serverURL string) tea.Cmd {
 	}
 }
 
-func refreshWorkflows(runStore *store.StateStore) tea.Cmd {
+func refreshWorkflows(runStore *jsstore.JSStateStore) tea.Cmd {
 	return func() tea.Msg {
 		runs, err := runStore.ListRuns(context.Background())
 		if err != nil {

@@ -1,4 +1,4 @@
-package machine
+package run
 
 import (
 	"context"
@@ -87,7 +87,7 @@ func (h *TimerMsgHandler) handleStepTimeout(ctx context.Context, timer ext.Timer
 			"runID", directive.RunInfo.ID,
 			"directiveKind", directive.Kind,
 		)
-		return intr.Retryable(NackDelay)
+		return intr.Retryable(RetryDelay)
 	}
 
 	slog.Debug("Enqueued step timeout directive", "wfID", timer.WFID)
@@ -131,7 +131,7 @@ func (h *TimerMsgHandler) applyFailure(ctx context.Context, d ext.Directive, cau
 			"wfID", d.RunInfo.WFID,
 			"error", err,
 		)
-		return intr.Retryable(NackDelay)
+		return intr.Retryable(RetryDelay)
 	}
 
 	return intr.Processed()
@@ -151,7 +151,7 @@ func (h *TimerMsgHandler) handleWaitTimeout(ctx context.Context, timer ext.Timer
 			"wfID", timer.WFID,
 			"directiveKind", directive.Kind,
 		)
-		return intr.Retryable(NackDelay)
+		return intr.Retryable(RetryDelay)
 	}
 
 	slog.Debug("Enqueued wait timeout directive", "wfID", timer.WFID)

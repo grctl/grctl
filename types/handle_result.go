@@ -1,21 +1,38 @@
-package machine
+package types
 
 import (
 	"strings"
 	"time"
+
+	ext "grctl/server/types/external/v1"
 )
+
+// CommitResult describes the outcome of a Commit call so callers can
+// distinguish storage-level conditions (CAS rejection, duplicate) from
+// infrastructure errors without importing the store package.
+type CommitResult struct {
+	IsCASRejection     bool
+	IsDuplicateMessage bool
+}
+
+// StateSnapshot holds the current state of a run as seen by the run manager.
+type StateSnapshot struct {
+	RunState ext.RunState
+	Event    ext.Directive
+	Cancel   ext.Directive
+}
 
 // HandlerAction defines the outcome of processing a directive
 type HandlerAction int
 
 const (
-	// ActionFailed means processing failed permanently (don't retry)
+	// processing failed permanently (don't retry)
 	ActionFailed HandlerAction = iota
 
-	// ActionProcessed means the directive was successfully handled
+	// the directive was successfully handled
 	ActionProcessed
 
-	// ActionRetryable means processing failed but should be retried
+	// processing failed but should be retried
 	ActionRetryable
 )
 

@@ -1,14 +1,13 @@
 //go:build integration
 
-package machine_test
+package run
 
 import (
 	"context"
 	"testing"
 
-	"grctl/server/machine"
+	"grctl/server/jsstore"
 	"grctl/server/natsreg"
-	"grctl/server/store"
 	"grctl/server/testutil"
 	intr "grctl/server/types"
 	ext "grctl/server/types/external/v1"
@@ -26,7 +25,7 @@ type PurgeRunResidueIntegrationSuite struct {
 	ns     *server.Server
 	js     jetstream.JetStream
 	stream jetstream.Stream
-	store  *store.StateStore
+	store  *jsstore.JSStateStore
 }
 
 func (s *PurgeRunResidueIntegrationSuite) SetupTest() {
@@ -34,10 +33,10 @@ func (s *PurgeRunResidueIntegrationSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.nc, s.ns, s.js = nc, ns, js
 
-	stream, err := store.EnsureStateStream(context.Background(), js, true)
+	stream, err := jsstore.EnsureStateStream(context.Background(), js, true)
 	s.Require().NoError(err)
 	s.stream = stream
-	s.store = store.NewStateStore(js, stream)
+	s.store = jsstore.NewJSStateStore(js, stream)
 }
 
 func (s *PurgeRunResidueIntegrationSuite) TearDownTest() {
@@ -61,7 +60,7 @@ func (s *PurgeRunResidueIntegrationSuite) subjectEmpty(subject string) bool {
 }
 
 func (s *PurgeRunResidueIntegrationSuite) runHandler(wfID ext.WFID) {
-	handler := machine.NewBgTaskHandler(nil, nil, s.store, 5)
+	handler := NewBgTaskHandler(nil, nil, s.store, 5)
 	task, err := ext.NewPurgeRunResidueTask(ext.NewDirectiveID(), wfID)
 	s.Require().NoError(err)
 
@@ -107,7 +106,7 @@ func (s *PurgeRunResidueIntegrationSuite) TestIdempotent() {
 
 	s.publishRaw(natsreg.Manifest.DirectiveSubject(wfType, wfID, runID), []byte("data"))
 
-	handler := machine.NewBgTaskHandler(nil, nil, s.store, 5)
+	handler := NewBgTaskHandler(nil, nil, s.store, 5)
 	task, err := ext.NewPurgeRunResidueTask(ext.NewDirectiveID(), wfID)
 	s.Require().NoError(err)
 
@@ -121,7 +120,7 @@ func (s *PurgeRunResidueIntegrationSuite) TestIdempotent() {
 func (s *PurgeRunResidueIntegrationSuite) TestNoMessages() {
 	wfID := ext.WFID("wf-empty")
 
-	handler := machine.NewBgTaskHandler(nil, nil, s.store, 5)
+	handler := NewBgTaskHandler(nil, nil, s.store, 5)
 	task, err := ext.NewPurgeRunResidueTask(ext.NewDirectiveID(), wfID)
 	s.Require().NoError(err)
 

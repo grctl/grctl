@@ -68,7 +68,7 @@ See [Workflows](workflows.md) for the full transition table and [Events](events.
 
 ## Deterministic Functions
 
-Workflow code re-executes from the beginning when a worker picks up a run after a crash. Any non-deterministic calls, getting the current time, generating a UUID, sampling a random number, must go through `ctx` so the engine can record the value on first execution and replay the same value on re-execution.
+Unlike full-replay engines, Ground Control only re-executes the latest step — not the entire workflow — when a worker picks up a run after a crash. Any non-deterministic calls within a step, getting the current time, generating a UUID, sampling a random number, must go through `ctx` so the engine can record the value on first execution and replay the same value if the step is retried.
 
 **Do not use `datetime.now()`, `uuid.uuid4()`, or `random.random()` directly inside handlers or tasks.** Use the `ctx` equivalents instead.
 

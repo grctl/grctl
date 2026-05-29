@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"grctl/server/config"
+	"grctl/server/jsstore"
 	"grctl/server/natsreg"
 	"grctl/server/server"
-	"grctl/server/store"
 	"grctl/server/testutil"
 	ext "grctl/server/types/external/v1"
 
@@ -26,7 +26,7 @@ type TerminalCleanupSuite struct {
 	nc         *nats.Conn
 	ns         *natsserver.Server
 	srv        *server.Server
-	stateStore *store.StateStore
+	stateStore *jsstore.JSStateStore
 	stream     jetstream.Stream
 }
 
@@ -52,10 +52,10 @@ func (s *TerminalCleanupSuite) SetupTest() {
 	s.Require().NoError(srv.Start())
 	s.srv = srv
 
-	stream, err := store.EnsureStateStream(context.Background(), js, true)
+	stream, err := jsstore.EnsureStateStream(context.Background(), js, true)
 	s.Require().NoError(err)
 	s.stream = stream
-	s.stateStore = store.NewStateStore(js, stream)
+	s.stateStore = jsstore.NewJSStateStore(js, stream)
 }
 
 func (s *TerminalCleanupSuite) TearDownTest() {

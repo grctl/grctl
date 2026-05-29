@@ -7,8 +7,8 @@ import (
 	"grctl/server/api"
 	"grctl/server/config"
 	"grctl/server/ingress"
-	"grctl/server/machine"
-	"grctl/server/store"
+	"grctl/server/jsstore"
+	"grctl/server/run"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -33,13 +33,13 @@ type bgTaskSvc interface {
 }
 
 type Server struct {
-	apiSubscriber    *api.APISubscriber
-	directiveQueue   directiveSvc
-	directiveHandler *machine.DirectiveHandler
-	timerStream      timerSvc
-	timerMsgHandler  *machine.TimerMsgHandler
-	bgTaskQueue      bgTaskSvc
-	bgTaskHandler    *machine.BgTaskHandler
+	apiSubscriber   *api.APISubscriber
+	directiveQueue  directiveSvc
+	runManager      *run.Manager
+	timerStream     timerSvc
+	timerMsgHandler *run.TimerMsgHandler
+	bgTaskQueue     bgTaskSvc
+	bgTaskHandler   *run.BgTaskHandler
 }
 
 // Options configures the server.
@@ -58,12 +58,12 @@ func NewServer(
 		opts = &Options{}
 	}
 
-	stateStream, err := store.EnsureStateStream(ctx, js, opts.InMemory)
+	stateStream, err := jsstore.EnsureStateStream(ctx, js, opts.InMemory)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize state stream: %w", err)
 	}
 
-	stateStore := store.NewStateStore(js, stateStream)
+	stateStore := jsstore.NewJSStateStore(js, stateStream)
 
 	directiveQueue, err := ingress.NewDirectiveQueue(ctx, js, stateStream)
 	if err != nil {
@@ -75,32 +75,32 @@ func NewServer(
 		return nil, fmt.Errorf("failed to initialize timer stream: %w", err)
 	}
 
-	directiveHandler := machine.NewDirectiveHandler(stateStore)
-	timerMsgHandler := machine.NewTimerMsgHandler(stateStore, maxTimerDeliveries)
-	bgTaskHandler := machine.NewBgTaskHandler(timerStream, stateStore, stateStore, maxBgTaskDeliveries)
+	runManager := run.NewManager(stateStore)
+	timerMsgHandler := run.NewTimerMsgHandler(stateStore, maxTimerDeliveries)
+	bgTaskHandler := run.NewBgTaskHandler(timerStream, stateStore, stateStore, maxBgTaskDeliveries)
 
 	bgTaskQueue, err := ingress.NewBgTaskQueue(ctx, stateStream)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize background task queue: %w", err)
 	}
 
-	runAPI := machine.NewRunAPI(stateStore, &cfg.Defaults)
+	runAPI := run.NewService(stateStore, &cfg.Defaults)
 	apiHandler := api.NewAPIHandler(runAPI)
 	apiSubscriber := api.NewAPISubscriber(nc, apiHandler)
 
 	return &Server{
-		apiSubscriber:    apiSubscriber,
-		directiveQueue:   directiveQueue,
-		directiveHandler: directiveHandler,
-		timerStream:      timerStream,
-		timerMsgHandler:  timerMsgHandler,
-		bgTaskQueue:      bgTaskQueue,
-		bgTaskHandler:    bgTaskHandler,
+		apiSubscriber:   apiSubscriber,
+		directiveQueue:  directiveQueue,
+		runManager:      runManager,
+		timerStream:     timerStream,
+		timerMsgHandler: timerMsgHandler,
+		bgTaskQueue:     bgTaskQueue,
+		bgTaskHandler:   bgTaskHandler,
 	}, nil
 }
 
 func (s *Server) Start() error {
-	if err := s.directiveQueue.Start(s.directiveHandler.Handle); err != nil {
+	if err := s.directiveQueue.Start(s.runManager.Handle); err != nil {
 		return fmt.Errorf("failed to start directive queue: %w", err)
 	}
 

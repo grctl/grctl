@@ -1,4 +1,4 @@
-package machine
+package run
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"grctl/server/config"
+	model "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 
 	"github.com/stretchr/testify/suite"
@@ -16,7 +17,7 @@ type fakeRunStore struct {
 	getErr  error
 }
 
-func (f *fakeRunStore) CreateRunInfo(_ context.Context, _ *ext.RunInfo) error {
+func (f *fakeRunStore) CreateRunInfo(_ context.Context, _ ext.RunInfo) error {
 	return nil
 }
 
@@ -28,22 +29,22 @@ func (f *fakeRunStore) PublishDirective(_ context.Context, _ ext.Directive) erro
 	return nil
 }
 
-type RunAPISuite struct {
+type ServiceSuite struct {
 	suite.Suite
 	store *fakeRunStore
-	api   *RunAPI
+	svc   *Service
 }
 
-func (s *RunAPISuite) SetupTest() {
+func (s *ServiceSuite) SetupTest() {
 	s.store = &fakeRunStore{}
-	s.api = NewRunAPI(s.store, &config.DefaultsConfig{})
+	s.svc = NewService(s.store, &config.DefaultsConfig{})
 }
 
-func TestRunAPI(t *testing.T) {
-	suite.Run(t, new(RunAPISuite))
+func TestService(t *testing.T) {
+	suite.Run(t, new(ServiceSuite))
 }
 
-func (s *RunAPISuite) TestSend_RejectsTerminalRun() {
+func (s *ServiceSuite) TestSend_RejectsTerminalRun() {
 	wfID := ext.NewWFID()
 	s.store.runInfo = ext.RunInfo{
 		WFID:   wfID,
@@ -57,12 +58,12 @@ func (s *RunAPISuite) TestSend_RejectsTerminalRun() {
 		},
 	}
 
-	err := s.api.Send(context.Background(), &cmd)
+	err := s.svc.Send(context.Background(), cmd)
 
-	s.True(errors.Is(err, ErrRunTerminal))
+	s.True(errors.Is(err, model.ErrRunTerminal))
 }
 
-func (s *RunAPISuite) TestCancel_RejectsTerminalRun() {
+func (s *ServiceSuite) TestCancel_RejectsTerminalRun() {
 	wfID := ext.NewWFID()
 	s.store.runInfo = ext.RunInfo{
 		WFID:   wfID,
@@ -76,7 +77,7 @@ func (s *RunAPISuite) TestCancel_RejectsTerminalRun() {
 		},
 	}
 
-	err := s.api.Cancel(context.Background(), &cmd)
+	err := s.svc.Cancel(context.Background(), cmd)
 
-	s.True(errors.Is(err, ErrRunTerminal))
+	s.True(errors.Is(err, model.ErrRunTerminal))
 }

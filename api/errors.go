@@ -5,8 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"grctl/server/machine"
-	"grctl/server/store"
+	model "grctl/server/types"
 )
 
 // grctlError represents a structured API error response
@@ -26,15 +25,15 @@ var ApiErrorMap = map[error]grctlError{
 		Code:    4000,
 		Message: "Unknown API command",
 	},
-	store.ErrWorkflowAlreadyRunning: {
+	model.ErrWorkflowAlreadyRunning: {
 		Code:    4001,
 		Message: "Workflow already has an active run",
 	},
-	store.ErrWorkflowRunNotFound: {
+	model.ErrWorkflowRunNotFound: {
 		Code:    4002,
 		Message: "Workflow run not found",
 	},
-	machine.ErrRunTerminal: {
+	model.ErrRunTerminal: {
 		Code:    4003,
 		Message: "Workflow run has already finished and cannot accept new commands",
 	},

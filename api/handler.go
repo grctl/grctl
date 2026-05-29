@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"grctl/server/machine"
+	"grctl/server/run"
 	"grctl/server/types/external/v1"
 )
 
@@ -16,11 +16,11 @@ var (
 )
 
 type APIHandler struct {
-	runAPI *machine.RunAPI
+	runSvc *run.Service
 }
 
-func NewAPIHandler(runAPI *machine.RunAPI) *APIHandler {
-	return &APIHandler{runAPI: runAPI}
+func NewAPIHandler(runSvc *run.Service) *APIHandler {
+	return &APIHandler{runSvc: runSvc}
 }
 
 func (h *APIHandler) handleMessage(msg external.Command) (any, error) {
@@ -48,7 +48,7 @@ func (h *APIHandler) handleStart(cmd external.Command) error {
 	}
 
 	ctx := context.Background()
-	return h.runAPI.StartRun(ctx, start)
+	return h.runSvc.StartRun(ctx, *start)
 }
 
 func (h *APIHandler) handleCancel(cmd external.Command) error {
@@ -59,7 +59,7 @@ func (h *APIHandler) handleCancel(cmd external.Command) error {
 	}
 
 	ctx := context.Background()
-	return h.runAPI.Cancel(ctx, &cmd)
+	return h.runSvc.Cancel(ctx, cmd)
 }
 
 func (h *APIHandler) handleDescribe(cmd external.Command) (any, error) {
@@ -70,7 +70,7 @@ func (h *APIHandler) handleDescribe(cmd external.Command) (any, error) {
 	}
 
 	ctx := context.Background()
-	return h.runAPI.DescribeRun(ctx, describeCmd.WFID)
+	return h.runSvc.DescribeRun(ctx, describeCmd.WFID)
 }
 
 func (h *APIHandler) handleTerminate(cmd external.Command) error {
@@ -92,5 +92,5 @@ func (h *APIHandler) handleEvent(cmd external.Command) error {
 	}
 
 	ctx := context.Background()
-	return h.runAPI.Send(ctx, &cmd)
+	return h.runSvc.Send(ctx, cmd)
 }

@@ -1,4 +1,4 @@
-package machine
+package run
 
 import (
 	"context"
@@ -67,7 +67,7 @@ func (s *BgTaskHandlerSuite) TestPurgeRunResidue_PurgerError() {
 
 	result := s.handler.Handle(context.Background(), task, 1)
 
-	s.Equal(intr.Retryable(NackDelay), result)
+	s.Equal(intr.Retryable(RetryDelay), result)
 }
 
 func (s *BgTaskHandlerSuite) TestPurgeRunResidue_Idempotent() {

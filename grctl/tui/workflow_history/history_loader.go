@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"grctl/server/api"
+	"grctl/server/jsstore"
 	"grctl/server/natsreg"
-	"grctl/server/store"
 	ext "grctl/server/types/external/v1"
 
 	"github.com/nats-io/nats.go"
@@ -19,11 +19,11 @@ import (
 // HistoryLoader manages the NATS connection and fetches history events for a single run.
 type HistoryLoader struct {
 	nc       *nats.Conn
-	store    *store.StateStore
+	store    *jsstore.JSStateStore
 	statusCh chan bool
 }
 
-// NewHistoryLoader connects to the server and returns a loader backed by StateStore.
+// NewHistoryLoader connects to the server and returns a loader backed by JSStateStore.
 func NewHistoryLoader(serverURL string) (*HistoryLoader, error) {
 	statusCh := make(chan bool, 2)
 	nc, err := nats.Connect(serverURL,
@@ -56,9 +56,7 @@ func NewHistoryLoader(serverURL string) (*HistoryLoader, error) {
 		return nil, fmt.Errorf("failed to bind to state stream: %w", err)
 	}
 
-	stateStore := store.NewStateStore(js, stream)
-
-	return &HistoryLoader{nc: nc, store: stateStore, statusCh: statusCh}, nil
+	return &HistoryLoader{nc: nc, store: jsstore.NewJSStateStore(js, stream), statusCh: statusCh}, nil
 }
 
 // GetRunInfoByRunID resolves a run by run ID alone (no wfType or wfID needed).

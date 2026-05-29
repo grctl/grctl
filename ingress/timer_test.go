@@ -4,8 +4,8 @@ package ingress
 
 import (
 	"context"
+	"grctl/server/jsstore"
 	"grctl/server/natsreg"
-	"grctl/server/store"
 	"grctl/server/testutil"
 	intr "grctl/server/types"
 	ext "grctl/server/types/external/v1"
@@ -34,7 +34,7 @@ func (s *TimerStreamTestSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.nc, s.ns, s.js = nc, ns, js
 
-	stream, err := store.EnsureStateStream(context.Background(), js, true)
+	stream, err := jsstore.EnsureStateStream(context.Background(), js, true)
 	s.Require().NoError(err)
 	s.stream = stream
 

@@ -9,8 +9,8 @@ import (
 
 	"grctl/server/api"
 	"grctl/server/config"
+	"grctl/server/jsstore"
 	"grctl/server/natsreg"
-	"grctl/server/store"
 	"grctl/server/testutil"
 	ext "grctl/server/types/external/v1"
 
@@ -27,7 +27,7 @@ type HandleStartCmdTestSuite struct {
 	nc         *nats.Conn
 	ns         *natsserver.Server
 	srv        *server.Server
-	stateStore *store.StateStore
+	stateStore *jsstore.JSStateStore
 }
 
 func (s *HandleStartCmdTestSuite) SetupTest() {
@@ -50,9 +50,9 @@ func (s *HandleStartCmdTestSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.srv = srv
 
-	stream, err := store.EnsureStateStream(context.Background(), js, true)
+	stream, err := jsstore.EnsureStateStream(context.Background(), js, true)
 	s.Require().NoError(err)
-	s.stateStore = store.NewStateStore(js, stream)
+	s.stateStore = jsstore.NewJSStateStore(js, stream)
 }
 
 func (s *HandleStartCmdTestSuite) TearDownTest() {

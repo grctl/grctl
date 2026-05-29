@@ -36,6 +36,7 @@ const DirectiveKindEvent DirectiveKind = "event"
 // Worker -> Server
 const DirectiveKindStepResult DirectiveKind = "step_result" //Successful step completion.
 const DirectiveKindFail DirectiveKind = "fail"
+const DirectiveKindFailStep DirectiveKind = "fail_step"
 const DirectiveKindComplete DirectiveKind = "complete"
 
 // Server -> Worker -> Server
@@ -45,6 +46,9 @@ const DirectiveKindStep DirectiveKind = "step"
 // Timeout directives
 const DirectiveKindStepTimeout DirectiveKind = "step_timeout"
 const DirectiveKindWaitTimeout DirectiveKind = "wait_timeout"
+
+// Internal server directives
+const DirectiveKindWakeFromInbox DirectiveKind = "wake_from_inbox"
 
 type DispatchableMessage interface {
 	StepName() string
@@ -87,6 +91,11 @@ type StepTimeout struct {
 	OriginalDirectiveID DirectiveID `json:"original_directive_id,omitempty" msgpack:"original_directive_id,omitempty"`
 }
 
+type FailStep struct {
+	StepName string       `json:"step_name" msgpack:"step_name"`
+	Error    ErrorDetails `json:"error" msgpack:"error"`
+}
+
 type Wait struct {
 	Timeout         uint32 `json:"timeout_ms" msgpack:"timeout_ms"`
 	TimeoutStepName string `json:"timeout_step_name" msgpack:"timeout_step_name"`
@@ -96,6 +105,11 @@ type WaitTimeout struct {
 	TimeoutStepName     string      `json:"timeout_step_name" msgpack:"timeout_step_name"`
 	OriginalDirectiveID DirectiveID `json:"original_directive_id" msgpack:"original_directive_id"`
 }
+
+// WakeFromInbox is an internal server directive that triggers dispatch of the
+// pending inbox event for a run that is already in Wait state.
+// It carries no payload — the plan reads sn.Event from the state snapshot.
+type WakeFromInbox struct{}
 
 type Cancel struct {
 	Reason string `json:"reason" msgpack:"reason"`
@@ -222,17 +236,21 @@ func (sr *StepResult) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-func (Start) isDirectiveMessage()       {}
-func (Cancel) isDirectiveMessage()      {}
-func (Terminate) isDirectiveMessage()   {}
+func (Start) isDirectiveMessage()     {}
+func (Complete) isDirectiveMessage()  {}
+func (Cancel) isDirectiveMessage()    {}
+func (Terminate) isDirectiveMessage() {}
+func (Fail) isDirectiveMessage()      {}
+
 func (Event) isDirectiveMessage()       {}
-func (Complete) isDirectiveMessage()    {}
-func (Fail) isDirectiveMessage()        {}
-func (Step) isDirectiveMessage()        {}
 func (Wait) isDirectiveMessage()        {}
 func (WaitTimeout) isDirectiveMessage() {}
-func (StepResult) isDirectiveMessage()  {}
-func (StepTimeout) isDirectiveMessage() {}
+
+func (Step) isDirectiveMessage()          {}
+func (StepResult) isDirectiveMessage()    {}
+func (FailStep) isDirectiveMessage()      {}
+func (StepTimeout) isDirectiveMessage()   {}
+func (WakeFromInbox) isDirectiveMessage() {}
 
 type Directive struct {
 	ID        DirectiveID      `json:"id" msgpack:"id"`
@@ -244,17 +262,19 @@ type Directive struct {
 }
 
 var DirectiveFactories = map[DirectiveKind]func() DirectiveMessage{
-	DirectiveKindStart:       func() DirectiveMessage { return &Start{} },
-	DirectiveKindCancel:      func() DirectiveMessage { return &Cancel{} },
-	DirectiveKindTerminate:   func() DirectiveMessage { return &Terminate{} },
-	DirectiveKindEvent:       func() DirectiveMessage { return &Event{} },
-	DirectiveKindComplete:    func() DirectiveMessage { return &Complete{} },
-	DirectiveKindFail:        func() DirectiveMessage { return &Fail{} },
-	DirectiveKindStep:        func() DirectiveMessage { return &Step{} },
-	DirectiveKindWait:        func() DirectiveMessage { return &Wait{} },
-	DirectiveKindStepResult:  func() DirectiveMessage { return &StepResult{} },
-	DirectiveKindStepTimeout: func() DirectiveMessage { return &StepTimeout{} },
-	DirectiveKindWaitTimeout: func() DirectiveMessage { return &WaitTimeout{} },
+	DirectiveKindStart:         func() DirectiveMessage { return &Start{} },
+	DirectiveKindCancel:        func() DirectiveMessage { return &Cancel{} },
+	DirectiveKindTerminate:     func() DirectiveMessage { return &Terminate{} },
+	DirectiveKindEvent:         func() DirectiveMessage { return &Event{} },
+	DirectiveKindComplete:      func() DirectiveMessage { return &Complete{} },
+	DirectiveKindFail:          func() DirectiveMessage { return &Fail{} },
+	DirectiveKindStep:          func() DirectiveMessage { return &Step{} },
+	DirectiveKindFailStep:      func() DirectiveMessage { return &FailStep{} },
+	DirectiveKindWait:          func() DirectiveMessage { return &Wait{} },
+	DirectiveKindStepResult:    func() DirectiveMessage { return &StepResult{} },
+	DirectiveKindStepTimeout:   func() DirectiveMessage { return &StepTimeout{} },
+	DirectiveKindWaitTimeout:   func() DirectiveMessage { return &WaitTimeout{} },
+	DirectiveKindWakeFromInbox: func() DirectiveMessage { return &WakeFromInbox{} },
 }
 
 // directiveWire is the internal wire format with short field names for compact encoding

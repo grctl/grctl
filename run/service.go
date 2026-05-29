@@ -1,4 +1,4 @@
-package machine
+package run
 
 import (
 	"context"
@@ -8,34 +8,29 @@ import (
 	"time"
 
 	"grctl/server/config"
-	"grctl/server/store"
+	model "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 )
 
-var ErrRunTerminal = errors.New("workflow run is in a terminal state")
-
 type RunStore interface {
-	CreateRunInfo(ctx context.Context, info *ext.RunInfo) error
+	CreateRunInfo(ctx context.Context, info ext.RunInfo) error
 	GetRunByWFID(ctx context.Context, wfID ext.WFID) (ext.RunInfo, uint64, error)
 	PublishDirective(ctx context.Context, d ext.Directive) error
 }
 
-type RunAPI struct {
+type Service struct {
 	store  RunStore
 	config *config.DefaultsConfig
 }
 
-func NewRunAPI(
-	store RunStore,
-	config *config.DefaultsConfig,
-) *RunAPI {
-	return &RunAPI{
+func NewService(store RunStore, config *config.DefaultsConfig) *Service {
+	return &Service{
 		store:  store,
 		config: config,
 	}
 }
 
-func (m *RunAPI) StartRun(ctx context.Context, cmd *ext.StartCmd) error {
+func (m *Service) StartRun(ctx context.Context, cmd ext.StartCmd) error {
 	timeout := uint32(m.config.StepTimeout.Milliseconds())
 	directive := ext.Directive{
 		ID:        ext.NewDirectiveID(),
@@ -49,8 +44,8 @@ func (m *RunAPI) StartRun(ctx context.Context, cmd *ext.StartCmd) error {
 	}
 
 	// Create workflow run record (also checks if already running)
-	if err := m.store.CreateRunInfo(ctx, &cmd.RunInfo); err != nil {
-		if errors.Is(err, store.ErrWorkflowAlreadyRunning) {
+	if err := m.store.CreateRunInfo(ctx, cmd.RunInfo); err != nil {
+		if errors.Is(err, model.ErrWorkflowAlreadyRunning) {
 			return err
 		}
 		return fmt.Errorf("failed to create run in store: %w", err)
@@ -69,7 +64,7 @@ func (m *RunAPI) StartRun(ctx context.Context, cmd *ext.StartCmd) error {
 // The event will be delivered to the inbox stream.
 // and then to the workflow only if the workflow in WaitEevent state.
 // Otherwise, the event will be queued until the workflow transitions to WaitEvent state.
-func (m *RunAPI) Send(ctx context.Context, cmd *ext.Command) error {
+func (m *Service) Send(ctx context.Context, cmd ext.Command) error {
 	msg, ok := cmd.Msg.(*ext.EventCmd)
 	if !ok || msg == nil {
 		return fmt.Errorf("expected EventCmd message but got %T", cmd.Msg)
@@ -83,7 +78,7 @@ func (m *RunAPI) Send(ctx context.Context, cmd *ext.Command) error {
 		return fmt.Errorf("failed to get run info from store: %w", err)
 	}
 	if runInfo.Status.IsTerminal() {
-		return ErrRunTerminal
+		return model.ErrRunTerminal
 	}
 
 	directive := ext.Directive{
@@ -105,7 +100,7 @@ func (m *RunAPI) Send(ctx context.Context, cmd *ext.Command) error {
 	return nil
 }
 
-func (m *RunAPI) DescribeRun(ctx context.Context, wfID ext.WFID) (ext.RunInfo, error) {
+func (m *Service) DescribeRun(ctx context.Context, wfID ext.WFID) (ext.RunInfo, error) {
 	runInfo, _, err := m.store.GetRunByWFID(ctx, wfID)
 	if err != nil {
 		return ext.RunInfo{}, fmt.Errorf("failed to get run info: %w", err)
@@ -114,7 +109,7 @@ func (m *RunAPI) DescribeRun(ctx context.Context, wfID ext.WFID) (ext.RunInfo, e
 	return runInfo, nil
 }
 
-func (m *RunAPI) Cancel(ctx context.Context, cmd *ext.Command) error {
+func (m *Service) Cancel(ctx context.Context, cmd ext.Command) error {
 	msg, ok := cmd.Msg.(*ext.CancelCmd)
 	if !ok || msg == nil {
 		return fmt.Errorf("expected CancelCmd message but got %T", cmd.Msg)
@@ -127,7 +122,7 @@ func (m *RunAPI) Cancel(ctx context.Context, cmd *ext.Command) error {
 		return fmt.Errorf("failed to get run info from store: %w", err)
 	}
 	if runInfo.Status.IsTerminal() {
-		return ErrRunTerminal
+		return model.ErrRunTerminal
 	}
 
 	directive := ext.Directive{

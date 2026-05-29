@@ -1,4 +1,4 @@
-package machine
+package history
 
 import (
 	"fmt"
@@ -6,13 +6,7 @@ import (
 	"time"
 )
 
-type HistoryBuilder struct{}
-
-func NewHistoryBuilder() *HistoryBuilder {
-	return &HistoryBuilder{}
-}
-
-func (b *HistoryBuilder) RunStarted(d ext.Directive, timestamp time.Time) (ext.HistoryEvent, error) {
+func RunStarted(d ext.Directive, timestamp time.Time) (ext.HistoryEvent, error) {
 	s, ok := d.Msg.(*ext.Start)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("expected Start directive but got %T", d.Msg)
@@ -31,7 +25,7 @@ func (b *HistoryBuilder) RunStarted(d ext.Directive, timestamp time.Time) (ext.H
 	return e, nil
 }
 
-func (b *HistoryBuilder) RunCompleted(d ext.Directive) (ext.HistoryEvent, error) {
+func RunCompleted(d ext.Directive) (ext.HistoryEvent, error) {
 	dmsg, ok := d.Msg.(*ext.Complete)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("expected Complete directive but got %T", d.Msg)
@@ -52,7 +46,7 @@ func (b *HistoryBuilder) RunCompleted(d ext.Directive) (ext.HistoryEvent, error)
 	return e, nil
 }
 
-func (b *HistoryBuilder) RunFailed(d ext.Directive) (ext.HistoryEvent, error) {
+func RunFailed(d ext.Directive) (ext.HistoryEvent, error) {
 	dmsg, ok := d.Msg.(*ext.Fail)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("expected Complete directive but got %T", d.Msg)
@@ -74,7 +68,7 @@ func (b *HistoryBuilder) RunFailed(d ext.Directive) (ext.HistoryEvent, error) {
 	return e, nil
 }
 
-func (b *HistoryBuilder) RunCancelScheduled(d ext.Directive) (ext.HistoryEvent, error) {
+func RunCancelScheduled(d ext.Directive) (ext.HistoryEvent, error) {
 	_, ok := d.Msg.(*ext.Cancel)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("expected CancelSchedule directive but got %T", d.Msg)
@@ -91,7 +85,7 @@ func (b *HistoryBuilder) RunCancelScheduled(d ext.Directive) (ext.HistoryEvent, 
 	return e, nil
 }
 
-func (b *HistoryBuilder) RunCancelReceived(d ext.Directive) (ext.HistoryEvent, error) {
+func RunCancelReceived(d ext.Directive) (ext.HistoryEvent, error) {
 	_, ok := d.Msg.(*ext.Cancel)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("expected CancelSchedule directive but got %T", d.Msg)
@@ -108,7 +102,7 @@ func (b *HistoryBuilder) RunCancelReceived(d ext.Directive) (ext.HistoryEvent, e
 	return e, nil
 }
 
-func (b *HistoryBuilder) RunCancelled(d ext.Directive) (ext.HistoryEvent, error) {
+func RunCancelled(d ext.Directive) (ext.HistoryEvent, error) {
 	dmsg, ok := d.Msg.(*ext.Cancel)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("expected Cancel directive but got %T", d.Msg)
@@ -130,7 +124,7 @@ func (b *HistoryBuilder) RunCancelled(d ext.Directive) (ext.HistoryEvent, error)
 	return e, nil
 }
 
-func (b *HistoryBuilder) StepStarted(d ext.Directive) (ext.HistoryEvent, error) {
+func StepStarted(d ext.Directive) (ext.HistoryEvent, error) {
 	var stepName string
 	if d.Kind == ext.DirectiveKindStart {
 		stepName = "start"
@@ -155,11 +149,7 @@ func (b *HistoryBuilder) StepStarted(d ext.Directive) (ext.HistoryEvent, error) 
 	return e, nil
 }
 
-func (p *HistoryBuilder) StepCompleted(d ext.Directive) (ext.HistoryEvent, error) {
-	msg, ok := d.Msg.(*ext.StepResult)
-	if !ok {
-		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step complete event: expected StepResult but got %T", d.Msg)
-	}
+func StepCompleted(msg ext.StepResult, ri ext.RunInfo) (ext.HistoryEvent, error) {
 	stepName, err := msg.ProcStepName()
 	if err != nil {
 		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step complete event: %w", err)
@@ -171,8 +161,8 @@ func (p *HistoryBuilder) StepCompleted(d ext.Directive) (ext.HistoryEvent, error
 	}
 
 	e := ext.HistoryEvent{
-		WFID:      d.RunInfo.WFID,
-		RunID:     d.RunInfo.ID,
+		WFID:      ri.WFID,
+		RunID:     ri.ID,
 		WorkerID:  workerID,
 		Timestamp: time.Now().UTC(),
 		Kind:      ext.HistoryKindStepCompleted,
@@ -186,23 +176,19 @@ func (p *HistoryBuilder) StepCompleted(d ext.Directive) (ext.HistoryEvent, error
 	return e, nil
 }
 
-func (p *HistoryBuilder) StepFailed(d ext.Directive) (ext.HistoryEvent, error) {
-	msg, ok := d.Msg.(*ext.StepResult)
-	if !ok {
-		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step failed event: expected StepResult but got %T", d.Msg)
-	}
+func StepFailed(msg ext.StepResult, ri ext.RunInfo) (ext.HistoryEvent, error) {
 	stepName, err := msg.ProcStepName()
 	if err != nil {
 		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step failed event: %w", err)
 	}
-	failMsg, ok := msg.NextMsg.(*ext.Fail)
+	failMsg, ok := msg.NextMsg.(*ext.FailStep)
 	if !ok {
-		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step failed event: expected Fail next msg but got %T", msg.NextMsg)
+		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step failed event: expected FailStep next msg but got %T", msg.NextMsg)
 	}
 
 	e := ext.HistoryEvent{
-		WFID:      d.RunInfo.WFID,
-		RunID:     d.RunInfo.ID,
+		WFID:      ri.WFID,
+		RunID:     ri.ID,
 		Timestamp: time.Now().UTC(),
 		Kind:      ext.HistoryKindStepFailed,
 		Msg: ext.StepFailed{
@@ -215,7 +201,7 @@ func (p *HistoryBuilder) StepFailed(d ext.Directive) (ext.HistoryEvent, error) {
 	return e, nil
 }
 
-func (p *HistoryBuilder) StepTimedout(d ext.Directive, currentState ext.RunState) (ext.HistoryEvent, error) {
+func StepTimedout(d ext.Directive, currentState ext.RunState) (ext.HistoryEvent, error) {
 	msg, ok := d.Msg.(*ext.StepTimeout)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("cannot publish step timeout event: expected StepTimeout but got %T", d.Msg)
@@ -239,7 +225,7 @@ func (p *HistoryBuilder) StepTimedout(d ext.Directive, currentState ext.RunState
 	return e, nil
 }
 
-func (p *HistoryBuilder) WaitTimedOut(d ext.Directive) (ext.HistoryEvent, error) {
+func WaitTimedOut(d ext.Directive) (ext.HistoryEvent, error) {
 	msg, ok := d.Msg.(*ext.WaitTimeout)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("cannot publish wait timed out history event: expected WaitTimeout directive but got %T", d.Msg)
@@ -254,7 +240,7 @@ func (p *HistoryBuilder) WaitTimedOut(d ext.Directive) (ext.HistoryEvent, error)
 	}, nil
 }
 
-func (p *HistoryBuilder) WaitStarted(d ext.Directive) (ext.HistoryEvent, error) {
+func WaitStarted(d ext.Directive) (ext.HistoryEvent, error) {
 	msg, ok := d.Msg.(*ext.Wait)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("cannot publish wait started history event: expected Wait directive but got %T", d.Msg)
@@ -269,7 +255,7 @@ func (p *HistoryBuilder) WaitStarted(d ext.Directive) (ext.HistoryEvent, error) 
 	}, nil
 }
 
-func (p *HistoryBuilder) EventReceived(d ext.Directive) (ext.HistoryEvent, error) {
+func EventReceived(d ext.Directive) (ext.HistoryEvent, error) {
 	msg, ok := d.Msg.(*ext.Event)
 	if !ok {
 		return ext.HistoryEvent{}, fmt.Errorf("cannot publish event received history event: expected Event directive but got %T", d.Msg)

@@ -1,10 +1,11 @@
-package store
+package jsstore
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"grctl/server/natsreg"
+	models "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 	"log/slog"
 	"strings"
@@ -16,44 +17,31 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var (
-	ErrRunStateNotFound       = errors.New("run state not found")
-	ErrWorkflowAlreadyRunning = errors.New("workflow already has an active run")
-	ErrWorkflowRunNotFound    = errors.New("workflow run not found")
-)
+var ErrRunStateNotFound = errors.New("run state not found")
 
-type StateSnapshot struct {
-	RunState ext.RunState
-	Event    ext.Directive
-	Cancel   ext.Directive
+type JSStateStore struct {
+	js     jetstream.JetStream
+	stream jetstream.Stream
 }
 
-type StateStore struct {
-	js        jetstream.JetStream
-	stream    jetstream.Stream
-	updatesrv UpdateService
-}
-
-func NewStateStore(js jetstream.JetStream, stream jetstream.Stream) *StateStore {
-	updatesrv := NewUpdateService(js)
-	return &StateStore{
-		js:        js,
-		stream:    stream,
-		updatesrv: updatesrv,
+func NewJSStateStore(js jetstream.JetStream, stream jetstream.Stream) *JSStateStore {
+	return &JSStateStore{
+		js:     js,
+		stream: stream,
 	}
 }
 
 // Create stores a new workflow run.
-// Returns ErrWorkflowAlreadyRunning if there's already an active non-terminal run.
-func (s *StateStore) CreateRunInfo(ctx context.Context, info *ext.RunInfo) error {
+// Returns models.ErrWorkflowAlreadyRunning if there's already an active non-terminal run.
+func (s *JSStateStore) CreateRunInfo(ctx context.Context, info ext.RunInfo) error {
 	// Check if there's an active run for this workflow ID, regardless of run ID.
 	ri, _, err := s.GetRunByWFID(ctx, info.WFID)
-	if err != nil && !errors.Is(err, ErrWorkflowRunNotFound) {
+	if err != nil && !errors.Is(err, models.ErrWorkflowRunNotFound) {
 		return fmt.Errorf("failed to check running status: %w", err)
 	}
 
 	if err == nil && !ri.IsTerminal() {
-		return fmt.Errorf("%w: %s", ErrWorkflowAlreadyRunning, ri.ID)
+		return fmt.Errorf("%w: %s", models.ErrWorkflowAlreadyRunning, ri.ID)
 	}
 
 	// Save the run record
@@ -71,12 +59,12 @@ func (s *StateStore) CreateRunInfo(ctx context.Context, info *ext.RunInfo) error
 }
 
 // Get retrieves a workflow run by workflow type, workflow ID and run ID.
-func (s *StateStore) GetRunInfo(ctx context.Context, WFType ext.WFType, WFID ext.WFID, runID ext.RunID) (ext.RunInfo, error) {
+func (s *JSStateStore) GetRunInfo(ctx context.Context, WFType ext.WFType, WFID ext.WFID, runID ext.RunID) (ext.RunInfo, error) {
 	key := natsreg.Manifest.RunInfoKey(WFType, WFID, runID)
 	entry, err := s.stream.GetLastMsgForSubject(ctx, key)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrMsgNotFound) {
-			return ext.RunInfo{}, ErrWorkflowRunNotFound
+			return ext.RunInfo{}, models.ErrWorkflowRunNotFound
 		}
 		return ext.RunInfo{}, fmt.Errorf("failed to get workflow run: %w", err)
 	}
@@ -89,12 +77,12 @@ func (s *StateStore) GetRunInfo(ctx context.Context, WFType ext.WFType, WFID ext
 	return info, nil
 }
 
-func (s *StateStore) GetRunByWFID(ctx context.Context, WFID ext.WFID) (ext.RunInfo, uint64, error) {
+func (s *JSStateStore) GetRunByWFID(ctx context.Context, WFID ext.WFID) (ext.RunInfo, uint64, error) {
 	subject := natsreg.Manifest.ListRunInfoByWFIDPattern("*", WFID)
 	msg, err := s.stream.GetLastMsgForSubject(ctx, subject)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrMsgNotFound) {
-			return ext.RunInfo{}, 0, ErrWorkflowRunNotFound
+			return ext.RunInfo{}, 0, models.ErrWorkflowRunNotFound
 		}
 		return ext.RunInfo{}, 0, fmt.Errorf("failed to get batch iterator: %w", err)
 	}
@@ -107,12 +95,12 @@ func (s *StateStore) GetRunByWFID(ctx context.Context, WFID ext.WFID) (ext.RunIn
 	return info, msg.Sequence, nil
 }
 
-func (s *StateStore) GetRunByRunID(ctx context.Context, RunID ext.RunID) (ext.RunInfo, error) {
+func (s *JSStateStore) GetRunByRunID(ctx context.Context, RunID ext.RunID) (ext.RunInfo, error) {
 	subject := natsreg.Manifest.ListRunInfoByRunIDPattern(RunID)
 	msg, err := s.stream.GetLastMsgForSubject(ctx, subject)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrMsgNotFound) {
-			return ext.RunInfo{}, ErrWorkflowRunNotFound
+			return ext.RunInfo{}, models.ErrWorkflowRunNotFound
 		}
 		return ext.RunInfo{}, fmt.Errorf("failed to get batch iterator: %w", err)
 	}
@@ -125,7 +113,7 @@ func (s *StateStore) GetRunByRunID(ctx context.Context, RunID ext.RunID) (ext.Ru
 	return info, nil
 }
 
-func (s *StateStore) ListRuns(ctx context.Context) ([]*ext.RunInfo, error) {
+func (s *JSStateStore) ListRuns(ctx context.Context) ([]*ext.RunInfo, error) {
 	subject := natsreg.Manifest.RunInfoKey("*", "*", "*")
 	slog.Debug("Listing workflow runs with subject pattern", "subject", subject)
 	streamName := natsreg.Manifest.StateStreamName()
@@ -151,8 +139,8 @@ func (s *StateStore) ListRuns(ctx context.Context) ([]*ext.RunInfo, error) {
 	return runs, nil
 }
 
-func (s *StateStore) GetStateSnapshot(ctx context.Context, wfID ext.WFID, runID ext.RunID) (StateSnapshot, error) {
-	var snapshot StateSnapshot
+func (s *JSStateStore) GetStateSnapshot(ctx context.Context, wfID ext.WFID, runID ext.RunID) (models.StateSnapshot, error) {
+	var snapshot models.StateSnapshot
 	// gctx is derived from ctx for the errgroup goroutines only.
 	// It is cancelled when Wait returns, so we keep the original ctx for subsequent calls.
 	g, gctx := errgroup.WithContext(ctx)
@@ -182,14 +170,14 @@ func (s *StateStore) GetStateSnapshot(ctx context.Context, wfID ext.WFID, runID 
 	})
 
 	if err := g.Wait(); err != nil {
-		return StateSnapshot{}, err
+		return models.StateSnapshot{}, err
 	}
 
 	if snapshot.Cancel.Kind == "" {
 		event, _, err := s.GetNextEvent(ctx, wfID, snapshot.RunState.LastEventSeqID)
 		if err != nil {
 			if !errors.Is(err, jetstreamext.ErrNoMessages) {
-				return StateSnapshot{}, err
+				return models.StateSnapshot{}, err
 			}
 		} else {
 			snapshot.Event = event
@@ -199,7 +187,7 @@ func (s *StateStore) GetStateSnapshot(ctx context.Context, wfID ext.WFID, runID 
 	return snapshot, nil
 }
 
-func (s *StateStore) GetRunState(ctx context.Context, wfID ext.WFID, runID ext.RunID) (ext.RunState, error) {
+func (s *JSStateStore) GetRunState(ctx context.Context, wfID ext.WFID, runID ext.RunID) (ext.RunState, error) {
 	subject := natsreg.Manifest.RunStateSubject(wfID, runID)
 	entry, err := s.stream.GetLastMsgForSubject(ctx, subject)
 	if err != nil {
@@ -218,7 +206,7 @@ func (s *StateStore) GetRunState(ctx context.Context, wfID ext.WFID, runID ext.R
 	return state, nil
 }
 
-func (s *StateStore) GetNextEvent(ctx context.Context, wfID ext.WFID, startAfterSeq uint64) (ext.Directive, uint64, error) {
+func (s *JSStateStore) GetNextEvent(ctx context.Context, wfID ext.WFID, startAfterSeq uint64) (ext.Directive, uint64, error) {
 	subject := natsreg.Manifest.EventInboxSubject(wfID)
 	opts := []jetstreamext.GetBatchOpt{jetstreamext.GetBatchSubject(subject)}
 	if startAfterSeq > 0 {
@@ -247,7 +235,7 @@ func (s *StateStore) GetNextEvent(ctx context.Context, wfID ext.WFID, startAfter
 	return ext.Directive{}, 0, jetstreamext.ErrNoMessages
 }
 
-func (h *StateStore) GetHistoryForRun(ctx context.Context, workflowID ext.WFID, runID ext.RunID) ([]*ext.HistoryEvent, error) {
+func (h *JSStateStore) GetHistoryForRun(ctx context.Context, workflowID ext.WFID, runID ext.RunID) ([]*ext.HistoryEvent, error) {
 	subject := natsreg.Manifest.HistorySubject(workflowID, runID)
 	slog.Debug("Fetching history for run", "subject", subject)
 	streamName := natsreg.Manifest.StateStreamName()
@@ -276,7 +264,7 @@ func (h *StateStore) GetHistoryForRun(ctx context.Context, workflowID ext.WFID, 
 	return events, nil
 }
 
-func (s *StateStore) HasRunInput(ctx context.Context, wfID ext.WFID, runID ext.RunID) (bool, error) {
+func (s *JSStateStore) HasRunInput(ctx context.Context, wfID ext.WFID, runID ext.RunID) (bool, error) {
 	key := natsreg.Manifest.RunInputKey(wfID, runID)
 	_, err := s.stream.GetLastMsgForSubject(ctx, key)
 	if err != nil {
@@ -288,7 +276,7 @@ func (s *StateStore) HasRunInput(ctx context.Context, wfID ext.WFID, runID ext.R
 	return true, nil
 }
 
-func (s *StateStore) HasRunOutput(ctx context.Context, wfID ext.WFID, runID ext.RunID) (bool, error) {
+func (s *JSStateStore) HasRunOutput(ctx context.Context, wfID ext.WFID, runID ext.RunID) (bool, error) {
 	key := natsreg.Manifest.RunOutputKey(wfID, runID)
 	_, err := s.stream.GetLastMsgForSubject(ctx, key)
 	if err != nil {
@@ -300,7 +288,7 @@ func (s *StateStore) HasRunOutput(ctx context.Context, wfID ext.WFID, runID ext.
 	return true, nil
 }
 
-func (s *StateStore) HasRunError(ctx context.Context, wfID ext.WFID, runID ext.RunID) (bool, error) {
+func (s *JSStateStore) HasRunError(ctx context.Context, wfID ext.WFID, runID ext.RunID) (bool, error) {
 	key := natsreg.Manifest.RunErrorKey(wfID, runID)
 	_, err := s.stream.GetLastMsgForSubject(ctx, key)
 	if err != nil {
@@ -312,14 +300,14 @@ func (s *StateStore) HasRunError(ctx context.Context, wfID ext.WFID, runID ext.R
 	return true, nil
 }
 
-func (s *StateStore) DeleteInboxEvent(ctx context.Context, seqID uint64) error {
+func (s *JSStateStore) DeleteInboxEvent(ctx context.Context, seqID uint64) error {
 	if err := s.stream.DeleteMsg(ctx, seqID); err != nil {
 		return fmt.Errorf("failed to delete inbox event with seqID %d: %w", seqID, err)
 	}
 	return nil
 }
 
-func (s *StateStore) PurgeRunResidue(ctx context.Context, wfID ext.WFID) error {
+func (s *JSStateStore) PurgeRunResidue(ctx context.Context, wfID ext.WFID) error {
 	patterns := []string{
 		natsreg.Manifest.DirectivePurgePattern(wfID),
 		natsreg.Manifest.TimerPurgePattern(wfID),
@@ -335,7 +323,7 @@ func (s *StateStore) PurgeRunResidue(ctx context.Context, wfID ext.WFID) error {
 	return nil
 }
 
-func (s *StateStore) GetCancelDirective(ctx context.Context, wfID ext.WFID) (ext.Directive, error) {
+func (s *JSStateStore) GetCancelDirective(ctx context.Context, wfID ext.WFID) (ext.Directive, error) {
 	subject := natsreg.Manifest.CancelInboxSubject(wfID)
 
 	entry, err := s.stream.GetLastMsgForSubject(ctx, subject)
@@ -351,7 +339,7 @@ func (s *StateStore) GetCancelDirective(ctx context.Context, wfID ext.WFID) (ext
 	return d, nil
 }
 
-func (s *StateStore) PublishDirective(ctx context.Context, d ext.Directive) error {
+func (s *JSStateStore) PublishDirective(ctx context.Context, d ext.Directive) error {
 	subject := natsreg.Manifest.DirectiveSubject(d.RunInfo.WFType, d.RunInfo.WFID, d.RunInfo.ID)
 
 	// msgpack must see a pointer to call Directive's custom EncodeMsgpack.
@@ -373,8 +361,47 @@ func (s *StateStore) PublishDirective(ctx context.Context, d ext.Directive) erro
 	return nil
 }
 
-func (s *StateStore) ApplyStateUpdates(ctx context.Context, updates []StateUpdate) error {
-	return s.updatesrv.SaveUpdates(ctx, updates)
+func (s *JSStateStore) Commit(ctx context.Context, records []models.Record) (models.CommitResult, error) {
+	if len(records) < 1 {
+		return models.CommitResult{}, fmt.Errorf("transition requires at least 1 record, got %d", len(records))
+	}
+
+	var msgs []nats.Msg
+	for _, record := range records {
+		recordMsgs, err := recordToNats(record)
+		if err != nil {
+			return models.CommitResult{}, fmt.Errorf("failed to create NATS messages: %w", err)
+		}
+		msgs = append(msgs, recordMsgs...)
+	}
+
+	if len(msgs) == 0 {
+		return models.CommitResult{}, fmt.Errorf("no messages to publish")
+	}
+
+	batch, err := jetstreamext.NewBatchPublisher(s.js)
+	if err != nil {
+		return models.CommitResult{}, fmt.Errorf("failed to create batch publisher: %w", err)
+	}
+
+	for i := 0; i < len(msgs)-1; i++ {
+		if err = batch.AddMsg(&msgs[i]); err != nil {
+			return models.CommitResult{}, fmt.Errorf("failed to add message to batch: %w", err)
+		}
+	}
+
+	if _, err = batch.CommitMsg(ctx, &msgs[len(msgs)-1]); err != nil {
+		subjects := make([]string, 0, len(msgs))
+		for _, m := range msgs {
+			subjects = append(subjects, m.Subject)
+		}
+		return models.CommitResult{
+			IsCASRejection:     IsCASRejection(err),
+			IsDuplicateMessage: IsDuplicateMessage(err),
+		}, fmt.Errorf("failed to commit batch (last_subject=%s, subjects=%s): %w", msgs[len(msgs)-1].Subject, strings.Join(subjects, ","), err)
+	}
+
+	return models.CommitResult{}, nil
 }
 
 // IsCASRejection reports whether err is a NATS OCC sequence-mismatch rejection.

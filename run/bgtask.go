@@ -1,4 +1,4 @@
-package machine
+package run
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	intr "grctl/server/types"
+	model "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -47,7 +48,7 @@ func (h *BgTaskHandler) Handle(ctx context.Context, task ext.BackgroundTask, num
 			"numDelivered", numDelivered,
 			"maxDeliveries", h.maxDeliveries,
 		)
-		return intr.Processed()
+		return model.Processed()
 	}
 
 	switch task.Kind {
@@ -59,18 +60,18 @@ func (h *BgTaskHandler) Handle(ctx context.Context, task ext.BackgroundTask, num
 		return h.handlePurgeRunResidue(ctx, task)
 	default:
 		slog.Warn("unknown background task kind, discarding", "kind", task.Kind)
-		return intr.Processed()
+		return model.Processed()
 	}
 }
 
-func (h *BgTaskHandler) handleDeleteTimer(ctx context.Context, task ext.BackgroundTask) intr.HandleResult {
+func (h *BgTaskHandler) handleDeleteTimer(ctx context.Context, task ext.BackgroundTask) model.HandleResult {
 	var payload ext.DeleteTimerPayload
 	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
 		slog.Error("failed to unmarshal delete timer payload, discarding",
 			"deduplicationID", task.DeduplicationID,
 			"error", err,
 		)
-		return intr.Processed()
+		return model.Processed()
 	}
 
 	if err := h.timers.CancelTimer(ctx, payload.WFID, payload.Kind, payload.TimerID); err != nil {
@@ -80,7 +81,7 @@ func (h *BgTaskHandler) handleDeleteTimer(ctx context.Context, task ext.Backgrou
 			"timerID", payload.TimerID,
 			"error", err,
 		)
-		return intr.Retryable(NackDelay)
+		return model.Retryable(RetryDelay)
 	}
 
 	slog.Debug("timer deleted by background task",
@@ -88,17 +89,17 @@ func (h *BgTaskHandler) handleDeleteTimer(ctx context.Context, task ext.Backgrou
 		"kind", payload.Kind,
 		"timerID", payload.TimerID,
 	)
-	return intr.Processed()
+	return model.Processed()
 }
 
-func (h *BgTaskHandler) handleDeleteInboxEvent(ctx context.Context, task ext.BackgroundTask) intr.HandleResult {
+func (h *BgTaskHandler) handleDeleteInboxEvent(ctx context.Context, task ext.BackgroundTask) model.HandleResult {
 	var payload ext.DeleteInboxEventPayload
 	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
 		slog.Error("failed to unmarshal delete inbox event payload, discarding",
 			"deduplicationID", task.DeduplicationID,
 			"error", err,
 		)
-		return intr.Processed()
+		return model.Processed()
 	}
 
 	if err := h.inbox.DeleteInboxEvent(ctx, payload.SeqID); err != nil {
@@ -106,21 +107,21 @@ func (h *BgTaskHandler) handleDeleteInboxEvent(ctx context.Context, task ext.Bac
 			"seqID", payload.SeqID,
 			"error", fmt.Sprintf("%v", err),
 		)
-		return intr.Retryable(NackDelay)
+		return model.Retryable(RetryDelay)
 	}
 
 	slog.Debug("inbox event deleted by background task", "seqID", payload.SeqID)
-	return intr.Processed()
+	return model.Processed()
 }
 
-func (h *BgTaskHandler) handlePurgeRunResidue(ctx context.Context, task ext.BackgroundTask) intr.HandleResult {
+func (h *BgTaskHandler) handlePurgeRunResidue(ctx context.Context, task ext.BackgroundTask) model.HandleResult {
 	var payload ext.PurgeRunResiduePayload
 	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
 		slog.Error("failed to unmarshal purge run residue payload, discarding",
 			"deduplicationID", task.DeduplicationID,
 			"error", err,
 		)
-		return intr.Processed()
+		return model.Processed()
 	}
 
 	if err := h.residuePurger.PurgeRunResidue(ctx, payload.WFID); err != nil {
@@ -128,9 +129,9 @@ func (h *BgTaskHandler) handlePurgeRunResidue(ctx context.Context, task ext.Back
 			"wfID", payload.WFID,
 			"error", err,
 		)
-		return intr.Retryable(NackDelay)
+		return model.Retryable(RetryDelay)
 	}
 
 	slog.Debug("run residue purged by background task", "wfID", payload.WFID)
-	return intr.Processed()
+	return model.Processed()
 }

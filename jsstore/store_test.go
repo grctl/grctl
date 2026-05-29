@@ -1,11 +1,11 @@
 //go:build integration
 
-package store_test
+package jsstore
 
 import (
 	"context"
-	"grctl/server/store"
 	"grctl/server/testutil"
+	models "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 	"testing"
 
@@ -18,7 +18,7 @@ type GetStateSnapshotTestSuite struct {
 	suite.Suite
 	nc     *nats.Conn
 	ns     *server.Server
-	store  *store.StateStore
+	store  *JSStateStore
 	wfID   ext.WFID
 	runID  ext.RunID
 	wfType ext.WFType
@@ -29,10 +29,10 @@ func (s *GetStateSnapshotTestSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.nc, s.ns = nc, ns
 
-	stream, err := store.EnsureStateStream(context.Background(), js, true)
+	stream, err := EnsureStateStream(context.Background(), js, true)
 	s.Require().NoError(err)
 
-	s.store = store.NewStateStore(js, stream)
+	s.store = NewJSStateStore(js, stream)
 	s.wfID = ext.NewWFID()
 	s.runID = ext.NewRunID()
 	s.wfType = ext.NewWFType("test")
@@ -82,8 +82,8 @@ func (s *GetStateSnapshotTestSuite) makeCancelDirective() ext.Directive {
 func (s *GetStateSnapshotTestSuite) TestWaitEventWithEvent() {
 	ctx := context.Background()
 
-	err := s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.RunStateUpdate{
+	_, err := s.store.Commit(ctx, []models.Record{
+		models.RunStateRecord{
 			State: ext.RunState{
 				Kind:  ext.RunStateWait,
 				WFID:  s.wfID,
@@ -93,8 +93,8 @@ func (s *GetStateSnapshotTestSuite) TestWaitEventWithEvent() {
 	})
 	s.Require().NoError(err)
 
-	err = s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.InboxUpdate{Directive: s.makeEventDirective()},
+	_, err = s.store.Commit(ctx, []models.Record{
+		models.InboxRecord{Directive: s.makeEventDirective()},
 	})
 	s.Require().NoError(err)
 
@@ -112,8 +112,8 @@ func (s *GetStateSnapshotTestSuite) TestEventCursorSkipsSeen() {
 	ctx := context.Background()
 
 	// Publish event1
-	err := s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.InboxUpdate{Directive: s.makeEventDirective()},
+	_, err := s.store.Commit(ctx, []models.Record{
+		models.InboxRecord{Directive: s.makeEventDirective()},
 	})
 	s.Require().NoError(err)
 
@@ -123,14 +123,14 @@ func (s *GetStateSnapshotTestSuite) TestEventCursorSkipsSeen() {
 	s.Require().NotNil(event1.Msg.(*ext.Event).EventSeqID)
 
 	// Publish event2
-	err = s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.InboxUpdate{Directive: s.makeEventDirective()},
+	_, err = s.store.Commit(ctx, []models.Record{
+		models.InboxRecord{Directive: s.makeEventDirective()},
 	})
 	s.Require().NoError(err)
 
 	// Publish RunState with LastEventSeqID pointing at event1 — snapshot should skip event1
-	err = s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.RunStateUpdate{
+	_, err = s.store.Commit(ctx, []models.Record{
+		models.RunStateRecord{
 			State: ext.RunState{
 				Kind:           ext.RunStateWait,
 				WFID:           s.wfID,
@@ -156,8 +156,8 @@ func (s *GetStateSnapshotTestSuite) TestEventCursorSkipsSeen() {
 func (s *GetStateSnapshotTestSuite) TestCancelSuppressesEvent() {
 	ctx := context.Background()
 
-	err := s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.RunStateUpdate{
+	_, err := s.store.Commit(ctx, []models.Record{
+		models.RunStateRecord{
 			State: ext.RunState{
 				Kind:  ext.RunStateWait,
 				WFID:  s.wfID,
@@ -167,13 +167,13 @@ func (s *GetStateSnapshotTestSuite) TestCancelSuppressesEvent() {
 	})
 	s.Require().NoError(err)
 
-	err = s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.InboxUpdate{Directive: s.makeEventDirective()},
+	_, err = s.store.Commit(ctx, []models.Record{
+		models.InboxRecord{Directive: s.makeEventDirective()},
 	})
 	s.Require().NoError(err)
 
-	err = s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.InboxUpdate{Directive: s.makeCancelDirective()},
+	_, err = s.store.Commit(ctx, []models.Record{
+		models.InboxRecord{Directive: s.makeCancelDirective()},
 	})
 	s.Require().NoError(err)
 
@@ -189,7 +189,7 @@ type HasRunDataTestSuite struct {
 	suite.Suite
 	nc    *nats.Conn
 	ns    *server.Server
-	store *store.StateStore
+	store *JSStateStore
 	wfID  ext.WFID
 	runID ext.RunID
 }
@@ -199,10 +199,10 @@ func (s *HasRunDataTestSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.nc, s.ns = nc, ns
 
-	stream, err := store.EnsureStateStream(context.Background(), js, true)
+	stream, err := EnsureStateStream(context.Background(), js, true)
 	s.Require().NoError(err)
 
-	s.store = store.NewStateStore(js, stream)
+	s.store = NewJSStateStore(js, stream)
 	s.wfID = ext.NewWFID()
 	s.runID = ext.NewRunID()
 }
@@ -220,8 +220,8 @@ func TestHasRunData(t *testing.T) {
 func (s *HasRunDataTestSuite) TestHasRunInput_True() {
 	ctx := context.Background()
 
-	err := s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.RunInputUpdate{WFID: s.wfID, RunID: s.runID, Input: "test-input"},
+	_, err := s.store.Commit(ctx, []models.Record{
+		models.RunInputRecord{WFID: s.wfID, RunID: s.runID, Input: "test-input"},
 	})
 	s.Require().NoError(err)
 
@@ -241,8 +241,8 @@ func (s *HasRunDataTestSuite) TestHasRunInput_False() {
 func (s *HasRunDataTestSuite) TestHasRunOutput_True() {
 	ctx := context.Background()
 
-	err := s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.RunOutputUpdate{WFID: s.wfID, RunID: s.runID, Result: "test-output"},
+	_, err := s.store.Commit(ctx, []models.Record{
+		models.RunOutputRecord{WFID: s.wfID, RunID: s.runID, Result: "test-output"},
 	})
 	s.Require().NoError(err)
 
@@ -254,8 +254,8 @@ func (s *HasRunDataTestSuite) TestHasRunOutput_True() {
 func (s *HasRunDataTestSuite) TestHasRunError_True() {
 	ctx := context.Background()
 
-	err := s.store.ApplyStateUpdates(ctx, []store.StateUpdate{
-		store.RunErrorUpdate{
+	_, err := s.store.Commit(ctx, []models.Record{
+		models.RunErrorRecord{
 			WFID:  s.wfID,
 			RunID: s.runID,
 			Error: ext.ErrorDetails{Message: "something failed"},
@@ -279,7 +279,7 @@ func TestEnsureStateStream_CancelledContext_ReturnsError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err = store.EnsureStateStream(ctx, js, true)
+	_, err = EnsureStateStream(ctx, js, true)
 	if err == nil {
 		t.Fatal("expected error from EnsureStateStream with cancelled context")
 	}

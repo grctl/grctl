@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	intr "grctl/server/types"
 	model "grctl/server/types"
@@ -24,19 +25,35 @@ type RunResiduePurger interface {
 	PurgeRunResidue(ctx context.Context, wfID ext.WFID) error
 }
 
-type BgTaskHandler struct {
-	timers        TimerCanceler
-	inbox         InboxEventDeleter
-	residuePurger RunResiduePurger
-	maxDeliveries uint64
+// ParentNotifier delivers a child's terminal outcome to its parent by publishing an
+// event directive to the parent run. It mirrors what the API Send path does, reused
+// here so a completed child can wake its parent's callback step.
+type ParentNotifier interface {
+	GetRunByWFID(ctx context.Context, wfID ext.WFID) (ext.RunInfo, uint64, error)
+	PublishDirective(ctx context.Context, d ext.Directive) error
 }
 
-func NewBgTaskHandler(timers TimerCanceler, inbox InboxEventDeleter, residuePurger RunResiduePurger, maxDeliveries uint64) *BgTaskHandler {
+type BgTaskHandler struct {
+	timers         TimerCanceler
+	inbox          InboxEventDeleter
+	residuePurger  RunResiduePurger
+	parentNotifier ParentNotifier
+	maxDeliveries  uint64
+}
+
+func NewBgTaskHandler(
+	timers TimerCanceler,
+	inbox InboxEventDeleter,
+	residuePurger RunResiduePurger,
+	parentNotifier ParentNotifier,
+	maxDeliveries uint64,
+) *BgTaskHandler {
 	return &BgTaskHandler{
-		timers:        timers,
-		inbox:         inbox,
-		residuePurger: residuePurger,
-		maxDeliveries: maxDeliveries,
+		timers:         timers,
+		inbox:          inbox,
+		residuePurger:  residuePurger,
+		parentNotifier: parentNotifier,
+		maxDeliveries:  maxDeliveries,
 	}
 }
 
@@ -58,6 +75,8 @@ func (h *BgTaskHandler) Handle(ctx context.Context, task ext.BackgroundTask, num
 		return h.handleDeleteInboxEvent(ctx, task)
 	case ext.BackgroundTaskKindPurgeRunResidue:
 		return h.handlePurgeRunResidue(ctx, task)
+	case ext.BackgroundTaskKindNotifyParentComplete:
+		return h.handleNotifyParentComplete(ctx, task)
 	default:
 		slog.Warn("unknown background task kind, discarding", "kind", task.Kind)
 		return model.Processed()
@@ -133,5 +152,76 @@ func (h *BgTaskHandler) handlePurgeRunResidue(ctx context.Context, task ext.Back
 	}
 
 	slog.Debug("run residue purged by background task", "wfID", payload.WFID)
+	return model.Processed()
+}
+
+func (h *BgTaskHandler) handleNotifyParentComplete(ctx context.Context, task ext.BackgroundTask) model.HandleResult {
+	var payload ext.NotifyParentCompletePayload
+	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
+		slog.Error("failed to unmarshal notify parent complete payload, discarding",
+			"deduplicationID", task.DeduplicationID,
+			"error", err,
+		)
+		return model.Processed()
+	}
+
+	parent, _, err := h.parentNotifier.GetRunByWFID(ctx, payload.ParentWFID)
+	if err != nil {
+		slog.Warn("failed to load parent run for completion callback, will retry",
+			"parentWFID", payload.ParentWFID,
+			"childWFID", payload.ChildWFID,
+			"error", err,
+		)
+		return model.Retryable(RetryDelay)
+	}
+
+	// A parent that already finished before its child's callback arrived is a workflow
+	// design issue, not an engine fault: the callback step has nowhere to run. Drop it
+	// loudly so an operator can spot the dangling child instead of retrying forever.
+	if parent.Status.IsTerminal() {
+		slog.Warn("parent run already terminal, dropping child completion callback",
+			"parentWFID", payload.ParentWFID,
+			"parentStatus", parent.Status,
+			"childWFID", payload.ChildWFID,
+			"stepName", payload.StepName,
+		)
+		return model.Processed()
+	}
+
+	// Deterministic ID derived from the task's dedup ID guards against the bg-task
+	// queue's at-least-once redelivery: a republish carries the same Nats-Msg-Id, which
+	// JetStream drops within its duplicate window. Retries are far quicker than that
+	// window, so in practice the parent sees the callback exactly once.
+	directive := ext.Directive{
+		ID:        ext.DirectiveID("notify." + string(task.DeduplicationID)),
+		Kind:      ext.DirectiveKindEvent,
+		Timestamp: time.Now().UTC(),
+		RunInfo:   parent,
+		Msg: &ext.Event{
+			EventName: payload.StepName,
+			Payload: map[string]any{
+				"status": payload.Status,
+				"result": payload.Result,
+				"error":  payload.Error,
+			},
+		},
+	}
+
+	if err := h.parentNotifier.PublishDirective(ctx, directive); err != nil {
+		slog.Warn("failed to publish completion callback to parent, will retry",
+			"parentWFID", payload.ParentWFID,
+			"childWFID", payload.ChildWFID,
+			"stepName", payload.StepName,
+			"error", err,
+		)
+		return model.Retryable(RetryDelay)
+	}
+
+	slog.Debug("delivered child completion callback to parent",
+		"parentWFID", payload.ParentWFID,
+		"childWFID", payload.ChildWFID,
+		"stepName", payload.StepName,
+		"status", payload.Status,
+	)
 	return model.Processed()
 }

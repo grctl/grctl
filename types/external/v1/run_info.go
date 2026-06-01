@@ -53,19 +53,23 @@ func NewWFType(name string) WFType {
 }
 
 type RunInfo struct {
-	ID           RunID          `json:"id" msgpack:"id"` //run_id
-	WFID         WFID           `json:"wf_id" msgpack:"wf_id"`
-	WFType       WFType         `json:"wf_type" msgpack:"wf_type"`
-	Status       RunStatus      `json:"status,omitempty" msgpack:"status,omitempty"`
-	WorkerName   WorkerName     `json:"worker_name,omitempty" msgpack:"worker_name,omitempty"`
-	ParentWFID   *WFID          `json:"parent_wf_id,omitempty" msgpack:"parent_wf_id,omitempty"`
-	ParentWFType *WFType        `json:"parent_wf_type,omitempty" msgpack:"parent_wf_type,omitempty"`
-	ParentRunID  *RunID         `json:"parent_run_id,omitempty" msgpack:"parent_run_id,omitempty"`
-	Timeout      *time.Duration `json:"timeout,omitempty" msgpack:"timeout,omitempty"`
-	CreatedAt    time.Time      `json:"created_at" msgpack:"created_at"`
-	ScheduledAt  *time.Time     `json:"scheduled_at,omitempty" msgpack:"scheduled_at,omitempty"`
-	StartedAt    *time.Time     `json:"started_at,omitempty" msgpack:"started_at,omitempty"`
-	CompletedAt  *time.Time     `json:"completed_at,omitempty" msgpack:"completed_at,omitempty"`
+	ID           RunID      `json:"id" msgpack:"id"` //run_id
+	WFID         WFID       `json:"wf_id" msgpack:"wf_id"`
+	WFType       WFType     `json:"wf_type" msgpack:"wf_type"`
+	Status       RunStatus  `json:"status,omitempty" msgpack:"status,omitempty"`
+	WorkerName   WorkerName `json:"worker_name,omitempty" msgpack:"worker_name,omitempty"`
+	ParentWFID   *WFID      `json:"parent_wf_id,omitempty" msgpack:"parent_wf_id,omitempty"`
+	ParentWFType *WFType    `json:"parent_wf_type,omitempty" msgpack:"parent_wf_type,omitempty"`
+	ParentRunID  *RunID     `json:"parent_run_id,omitempty" msgpack:"parent_run_id,omitempty"`
+	// ParentCallbackStep names the step in the parent workflow to trigger when this
+	// run reaches a terminal state. Set only for child runs started with a completion
+	// callback; nil otherwise. Persisted with the run so it survives until terminal.
+	ParentCallbackStep *string        `json:"parent_callback_step,omitempty" msgpack:"parent_callback_step,omitempty"`
+	Timeout            *time.Duration `json:"timeout,omitempty" msgpack:"timeout,omitempty"`
+	CreatedAt          time.Time      `json:"created_at" msgpack:"created_at"`
+	ScheduledAt        *time.Time     `json:"scheduled_at,omitempty" msgpack:"scheduled_at,omitempty"`
+	StartedAt          *time.Time     `json:"started_at,omitempty" msgpack:"started_at,omitempty"`
+	CompletedAt        *time.Time     `json:"completed_at,omitempty" msgpack:"completed_at,omitempty"`
 	// HistorySeqID is the NATS stream sequence of the RunState message from the previous
 	// transition. Since RunStateUpdate is always the last message in each batch, all history
 	// entries from prior transitions have sequences <= this value. Workers use this as an

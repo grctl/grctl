@@ -70,6 +70,10 @@ run = "./bin/grctl workflow list"
 description = "Run tests"
 run = "go test -v ./..."
 
+[tasks."test:int"]
+description = "Run integration tests"
+run = "go test -v -tags=integration ./..."
+
 [tasks.lint]
 description = "Run linter"
 run = "golangci-lint run --timeout=5m ./..."

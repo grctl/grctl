@@ -9,6 +9,31 @@ import (
 	"time"
 )
 
+// parentCallbackRecords returns the background-task record that delivers this run's
+// terminal outcome to its parent's callback step, or nil if the run was not started
+// with a completion callback. result is set for completed outcomes; errDetails is set
+// for failed/cancelled outcomes so the parent can branch on a single callback.
+func parentCallbackRecords(d ext.Directive, status ext.RunStatus, result any, errDetails *ext.ErrorDetails) ([]model.Record, error) {
+	ri := d.RunInfo
+	if ri.ParentWFID == nil || ri.ParentCallbackStep == nil {
+		return nil, nil
+	}
+
+	task, err := ext.NewNotifyParentCompleteTask(d.ID, ext.NotifyParentCompletePayload{
+		ParentWFID: *ri.ParentWFID,
+		StepName:   *ri.ParentCallbackStep,
+		ChildWFID:  ri.WFID,
+		Status:     status,
+		Result:     result,
+		Error:      errDetails,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to build notify parent complete task: %w", err)
+	}
+
+	return []model.Record{model.BackgroundTaskRecord{Task: task}}, nil
+}
+
 func Start(d ext.Directive) ([]model.Record, error) {
 	records := make([]model.Record, 0, 4)
 	ri := d.RunInfo
@@ -61,13 +86,21 @@ func CompleteRun(d ext.Directive, currentState ext.RunState) ([]model.Record, er
 		ExpectedSeq: currentState.SeqID,
 	})
 
+	var result any
 	if msg, ok := d.Msg.(*ext.Complete); ok && msg.Result != nil {
+		result = msg.Result
 		records = append(records, model.RunOutputRecord{
 			WFID:   d.RunInfo.WFID,
 			RunID:  d.RunInfo.ID,
 			Result: msg.Result,
 		})
 	}
+
+	callbackRecords, err := parentCallbackRecords(d, ext.RunStatusCompleted, result, nil)
+	if err != nil {
+		return nil, err
+	}
+	records = append(records, callbackRecords...)
 
 	purgeTask, err := ext.NewPurgeRunResidueTask(d.ID, d.RunInfo.WFID)
 	if err != nil {
@@ -116,6 +149,16 @@ func CancelRun(d ext.Directive, currentState ext.RunState) ([]model.Record, erro
 		ExpectedSeq: currentState.SeqID,
 	})
 
+	cancelErr := &ext.ErrorDetails{Type: "Cancelled", Message: "child workflow was cancelled"}
+	if msg, ok := d.Msg.(*ext.Cancel); ok && msg.Reason != "" {
+		cancelErr.Message = msg.Reason
+	}
+	callbackRecords, err := parentCallbackRecords(d, ext.RunStatusCancelled, nil, cancelErr)
+	if err != nil {
+		return nil, err
+	}
+	records = append(records, callbackRecords...)
+
 	purgeTask, err := ext.NewPurgeRunResidueTask(d.ID, d.RunInfo.WFID)
 	if err != nil {
 		return nil, fmt.Errorf("build purge run residue task: %w", err)
@@ -160,6 +203,13 @@ func FailRun(d ext.Directive, currentState ext.RunState) ([]model.Record, error)
 		RunID: d.RunInfo.ID,
 		Error: msg.Error,
 	})
+
+	failErr := msg.Error
+	callbackRecords, err := parentCallbackRecords(d, ext.RunStatusFailed, nil, &failErr)
+	if err != nil {
+		return nil, err
+	}
+	records = append(records, callbackRecords...)
 
 	purgeTask, err := ext.NewPurgeRunResidueTask(d.ID, d.RunInfo.WFID)
 	if err != nil {

@@ -77,7 +77,7 @@ func NewServer(
 
 	runManager := run.NewManager(stateStore)
 	timerMsgHandler := run.NewTimerMsgHandler(stateStore, maxTimerDeliveries)
-	bgTaskHandler := run.NewBgTaskHandler(timerStream, stateStore, stateStore, maxBgTaskDeliveries)
+	bgTaskHandler := run.NewBgTaskHandler(timerStream, stateStore, stateStore, stateStore, maxBgTaskDeliveries)
 
 	bgTaskQueue, err := ingress.NewBgTaskQueue(ctx, stateStream)
 	if err != nil {

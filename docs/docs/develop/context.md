@@ -28,10 +28,26 @@ async def start(ctx: Context, order_id: str, amount: float) -> Directive:
 
 @order.step()
 async def validate(ctx: Context) -> Directive:
-    order_id = await ctx.store.get("order_id", str)  # raises KeyError if not set
+    order_id = await ctx.store.get("order_id", str)  # raises StoreKeyNotFoundError if not set
     amount = await ctx.store.get("amount", float)
     return ctx.next.step(charge)
 ```
+
+!!! info "Handling Missing Keys"
+    If a key is not found in the store, `await ctx.store.get(key)` raises `StoreKeyNotFoundError` (which inherits from the standard Python `KeyError`).
+
+    You can import it from `grctl.worker` to handle missing keys:
+
+    ```python
+    from grctl.worker import StoreKeyNotFoundError
+
+    try:
+        await ctx.store.get("task_a_result", str)
+    except StoreKeyNotFoundError:
+        # Pause the workflow and wait for the task to complete
+        return ctx.next.wait()
+    ```
+
 
 ### Atomicity and Buffering
 
@@ -46,9 +62,10 @@ The Store provides an **all-or-nothing guarantee** for state changes:
 | Method | Description |
 |---|---|
 | `ctx.store.put(key, value)` | Write a value. Buffered until step completes. |
-| `await ctx.store.get(key)` | Read a value. Returns `None` if not found. |
+| `await ctx.store.get(key)` | Read a value. Raises `StoreKeyNotFoundError` if not found. |
+| `await ctx.store.get(key, ty)` | Read a value and convert/validate to type `ty`. Raises `StoreKeyNotFoundError` if not found. |
 
-Values can be any msgpack-serializable type: strings, numbers, lists, dicts, booleans, `None`.
+Values can be any msgpack-serializable primitive (strings, numbers, booleans, lists, dicts, `None`), as well as **`msgspec.Struct`** classes and **Pydantic `BaseModel`** models.
 
 ## Step Transitions
 

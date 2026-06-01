@@ -21,9 +21,16 @@ import (
 // Plan is pure: it performs no I/O, mutates no state, and returns the same
 // records for the same (directive, snapshot) input.
 //
-// Callers must ensure the run is non-terminal before calling Plan; Plan does
-// not re-check terminal status
+// A directive that arrives for a run already in a terminal state (complete, fail,
+// cancel) is ignored: Plan returns no records, the run-observable result being
+// that nothing changes. This is the late-stimulus guard for the whole state
+// machine, so it lives here rather than in any delivery handler.
 func plan(ctx context.Context, d ext.Directive, sn model.StateSnapshot) ([]model.Record, error) {
+	if sn.RunState.IsTerminal() {
+		slog.DebugContext(ctx, "ignoring directive for terminal run", "kind", d.Kind)
+		return nil, nil
+	}
+
 	switch d.Kind {
 	case ext.DirectiveKindStart:
 		return planFromRunStart(ctx, d)

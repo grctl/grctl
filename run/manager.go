@@ -56,12 +56,8 @@ func (m *Manager) Handle(ctx context.Context, d ext.Directive, numDelivered uint
 
 	ctx = context.WithValue(ctx, ctxKeyRunStateKind, sn.RunState.Kind)
 
-	// TODO: plan should be responsible for handling terminal run state
-	if sn.RunState.IsTerminal() {
-		slog.DebugContext(ctx, "rejecting directive for terminal run")
-		return model.Processed()
-	}
-
+	// plan owns the terminal-run guard: a directive for a finished run yields no
+	// records, which commits as a no-op (Processed). See plan().
 	records, err := plan(ctx, d, sn)
 	if err != nil {
 		slog.Error("failed to create plan", "error", err)

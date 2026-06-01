@@ -9,9 +9,10 @@ import (
 type BackgroundTaskKind string
 
 const (
-	BackgroundTaskKindDeleteTimer      BackgroundTaskKind = "delete_timer"
-	BackgroundTaskKindDeleteInboxEvent BackgroundTaskKind = "delete_inbox_event"
-	BackgroundTaskKindPurgeRunResidue  BackgroundTaskKind = "purge_run_residue"
+	BackgroundTaskKindDeleteTimer          BackgroundTaskKind = "delete_timer"
+	BackgroundTaskKindDeleteInboxEvent     BackgroundTaskKind = "delete_inbox_event"
+	BackgroundTaskKindPurgeRunResidue      BackgroundTaskKind = "purge_run_residue"
+	BackgroundTaskKindNotifyParentComplete BackgroundTaskKind = "notify_parent_complete"
 )
 
 type BackgroundTask struct {
@@ -36,6 +37,20 @@ type DeleteInboxEventPayload struct {
 // PurgeRunResiduePayload is the msgpack-encoded Payload for BackgroundTaskKindPurgeRunResidue.
 type PurgeRunResiduePayload struct {
 	WFID WFID `msgpack:"wf_id"`
+}
+
+// NotifyParentCompletePayload is the msgpack-encoded Payload for
+// BackgroundTaskKindNotifyParentComplete. It carries everything the handler needs
+// to deliver the child's terminal outcome to the parent's callback step without a
+// second store lookup of the child run. Result is set when Status is completed;
+// Error is set for failed/cancelled/timed-out outcomes.
+type NotifyParentCompletePayload struct {
+	ParentWFID WFID          `msgpack:"parent_wf_id"`
+	StepName   string        `msgpack:"step_name"`
+	ChildWFID  WFID          `msgpack:"child_wf_id"`
+	Status     RunStatus     `msgpack:"status"`
+	Result     any           `msgpack:"result,omitempty"`
+	Error      *ErrorDetails `msgpack:"error,omitempty"`
 }
 
 // DeriveBgTaskID produces a deterministic DirectiveID for a background task derived from
@@ -81,5 +96,20 @@ func NewPurgeRunResidueTask(parentID DirectiveID, wfID WFID) (BackgroundTask, er
 		Kind:            BackgroundTaskKindPurgeRunResidue,
 		DeduplicationID: DeriveBgTaskID(parentID, BackgroundTaskKindPurgeRunResidue),
 		Payload:         payload,
+	}, nil
+}
+
+// NewNotifyParentCompleteTask constructs a BackgroundTask that delivers a child's terminal
+// outcome to its parent's callback step. parentID is the child's terminal directive ID, so
+// the derived dedup ID makes redelivery of the same terminal transition notify the parent once.
+func NewNotifyParentCompleteTask(parentID DirectiveID, payload NotifyParentCompletePayload) (BackgroundTask, error) {
+	encoded, err := msgpack.Marshal(&payload)
+	if err != nil {
+		return BackgroundTask{}, fmt.Errorf("failed to marshal notify parent complete payload: %w", err)
+	}
+	return BackgroundTask{
+		Kind:            BackgroundTaskKindNotifyParentComplete,
+		DeduplicationID: DeriveBgTaskID(parentID, BackgroundTaskKindNotifyParentComplete),
+		Payload:         encoded,
 	}, nil
 }

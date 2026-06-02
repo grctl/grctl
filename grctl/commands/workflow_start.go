@@ -92,10 +92,16 @@ func runWorkflowStart(cmd *cobra.Command, args []string) error {
 
 	runID := ext.NewRunID()
 
+	clientID, err := deriveClientID()
+	if err != nil {
+		return fmt.Errorf("derive client ID: %w", err)
+	}
+
 	command := ext.Command{
 		ID:        ext.NewCmdID(),
 		Kind:      ext.CmdKindRunStart,
 		Timestamp: time.Now().UTC(),
+		SenderID:  clientID,
 		Msg: &ext.StartCmd{
 			RunInfo: ext.RunInfo{
 				ID:     runID,

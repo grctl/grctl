@@ -70,6 +70,7 @@ func (s *TerminalCleanupSuite) startRun(wfID ext.WFID, runID ext.RunID, wfType e
 		ID:        ext.NewCmdID(),
 		Kind:      ext.CmdKindRunStart,
 		Timestamp: time.Now().UTC(),
+		SenderID:  "c:test-client",
 		Msg: &ext.StartCmd{
 			RunInfo: ext.RunInfo{
 				ID:     runID,

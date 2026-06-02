@@ -28,6 +28,7 @@ type HandleStartCmdTestSuite struct {
 	ns         *natsserver.Server
 	srv        *server.Server
 	stateStore *jsstore.JSStateStore
+	registry   *jsstore.WorkflowTypeRegistry
 }
 
 func (s *HandleStartCmdTestSuite) SetupTest() {
@@ -53,6 +54,7 @@ func (s *HandleStartCmdTestSuite) SetupTest() {
 	stream, err := jsstore.EnsureStateStream(context.Background(), js, true)
 	s.Require().NoError(err)
 	s.stateStore = jsstore.NewJSStateStore(js, stream)
+	s.registry = jsstore.NewWorkflowTypeRegistry(js, stream)
 }
 
 func (s *HandleStartCmdTestSuite) TearDownTest() {
@@ -78,6 +80,7 @@ func (s *HandleStartCmdTestSuite) TestDescribeRun_ActiveWorkflow() {
 		ID:        ext.NewCmdID(),
 		Kind:      ext.CmdKindRunStart,
 		Timestamp: time.Now().UTC(),
+		SenderID:  "c:test-client",
 		Msg: &ext.StartCmd{
 			RunInfo: ext.RunInfo{
 				ID:     runID,
@@ -101,6 +104,7 @@ func (s *HandleStartCmdTestSuite) TestDescribeRun_ActiveWorkflow() {
 		ID:        ext.NewCmdID(),
 		Kind:      ext.CmdKindRunDescribe,
 		Timestamp: time.Now().UTC(),
+		SenderID:  "c:test-client",
 		Msg:       &ext.DescribeCmd{WFID: wfID},
 	}
 	data, err = msgpack.Marshal(&describeCmd)
@@ -133,6 +137,7 @@ func (s *HandleStartCmdTestSuite) TestDescribeRun_UnknownWorkflow() {
 		ID:        ext.NewCmdID(),
 		Kind:      ext.CmdKindRunDescribe,
 		Timestamp: time.Now().UTC(),
+		SenderID:  "c:test-client",
 		Msg:       &ext.DescribeCmd{WFID: unknownWFID},
 	}
 	data, err := msgpack.Marshal(&describeCmd)
@@ -161,6 +166,7 @@ func (s *HandleStartCmdTestSuite) TestRunStartIsProcessed() {
 		ID:        ext.NewCmdID(),
 		Kind:      ext.CmdKindRunStart,
 		Timestamp: time.Now().UTC(),
+		SenderID:  "c:test-client",
 		Msg: &ext.StartCmd{
 			RunInfo: ext.RunInfo{
 				ID:     runID,
@@ -199,4 +205,67 @@ func (s *HandleStartCmdTestSuite) TestRunStartIsProcessed() {
 	s.Require().NoError(err)
 	s.Require().Len(history, 1)
 	s.Equal(ext.HistoryKindRunStarted, history[0].Kind)
+}
+
+func (s *HandleStartCmdTestSuite) TestHandleRegister_PersistsAllTypes() {
+	ctx := context.Background()
+	defs := []ext.WorkflowTypeDef{
+		{
+			Type:      ext.WFType("order_wf"),
+			StartStep: "start",
+			Steps:     []string{"reserve", "charge"},
+			Events:    []string{"approve"},
+			Queries:   []string{"status"},
+		},
+		{Type: ext.WFType("payment_wf"), StartStep: "begin", Steps: []string{"authorize"}},
+	}
+
+	registerCmd := ext.Command{
+		ID:        ext.NewCmdID(),
+		Kind:      ext.CmdKindWorkerRegister,
+		Timestamp: time.Now().UTC(),
+		SenderID:  "w:worker-1",
+		Msg:       &ext.RegisterCmd{WorkerID: "w:worker-1", Types: defs},
+	}
+	data, err := msgpack.Marshal(&registerCmd)
+	s.Require().NoError(err)
+
+	msg, err := s.nc.Request(natsreg.Manifest.WorkerCommandSubject(), data, 3*time.Second)
+	s.Require().NoError(err)
+
+	var resp api.GrctlAPIResponse
+	s.Require().NoError(msgpack.Unmarshal(msg.Data, &resp))
+	s.Require().True(resp.Success, "expected success response, got error: %v", resp.Error)
+
+	for _, def := range defs {
+		entry, err := s.registry.GetType(ctx, def.Type)
+		s.Require().NoError(err)
+		s.Equal(def, entry.WorkflowTypeDef)
+		s.Equal("w:worker-1", entry.WorkerID)
+	}
+}
+
+func (s *HandleStartCmdTestSuite) TestHandleRegister_EmptyCatalogAcksAndWritesNothing() {
+	ctx := context.Background()
+
+	registerCmd := ext.Command{
+		ID:        ext.NewCmdID(),
+		Kind:      ext.CmdKindWorkerRegister,
+		Timestamp: time.Now().UTC(),
+		SenderID:  "w:worker-empty",
+		Msg:       &ext.RegisterCmd{WorkerID: "w:worker-empty"},
+	}
+	data, err := msgpack.Marshal(&registerCmd)
+	s.Require().NoError(err)
+
+	msg, err := s.nc.Request(natsreg.Manifest.WorkerCommandSubject(), data, 3*time.Second)
+	s.Require().NoError(err)
+
+	var resp api.GrctlAPIResponse
+	s.Require().NoError(msgpack.Unmarshal(msg.Data, &resp))
+	s.Require().True(resp.Success, "expected success response, got error: %v", resp.Error)
+
+	entries, err := s.registry.ListTypes(ctx)
+	s.Require().NoError(err)
+	s.Empty(entries)
 }

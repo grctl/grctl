@@ -3,6 +3,7 @@ package workflow_history
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
@@ -108,10 +109,16 @@ func (l *HistoryLoader) StatusCh() <-chan bool {
 
 // CancelWorkflow sends a cancel command for the given workflow ID.
 func (l *HistoryLoader) CancelWorkflow(ctx context.Context, wfID ext.WFID) error {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("get hostname: %w", err)
+	}
+
 	command := ext.Command{
 		ID:        ext.NewCmdID(),
 		Kind:      ext.CmdKindRunCancel,
 		Timestamp: time.Now().UTC(),
+		SenderID:  "c:" + hostname,
 		Msg: &ext.CancelCmd{
 			WFID:   wfID,
 			Reason: "cancelled via TUI",

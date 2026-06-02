@@ -186,6 +186,33 @@ func (m *NATSManifest) APISubjectListener() string {
 	return m.subjectPattern("api", "listen")
 }
 
+// WorkerCommandSubject returns the request-reply subject workers send commands
+// to (e.g. registration). The Command.Kind discriminates the operation.
+// Pattern: grctl_api.worker
+func (m *NATSManifest) WorkerCommandSubject() string {
+	return m.subjectPattern("api", "worker")
+}
+
+// WorkerCmdSubject constructs the per-worker command subject for server→worker signals.
+// Pattern: grctl_worker_cmd.{worker_id}
+func (m *NATSManifest) WorkerCmdSubject(workerID string) string {
+	pattern := m.subjectPattern("worker_cmd", "publish")
+	return substituteParams(pattern, map[string]string{"worker_id": workerID})
+}
+
+// WorkflowTypeRegistrySubject constructs the registry subject holding the single
+// rolled-up entry for one workflow type. Pattern: grctl_registry.{wf_type}
+func (m *NATSManifest) WorkflowTypeRegistrySubject(wfType ext.WFType) string {
+	pattern := m.subjectPattern("workflow_type_registry", "publish")
+	return substituteParams(pattern, map[string]string{"wf_type": string(wfType)})
+}
+
+// WorkflowTypeRegistryListenerPattern returns the pattern matching every
+// workflow type registry entry. Pattern: grctl_registry.>
+func (m *NATSManifest) WorkflowTypeRegistryListenerPattern() string {
+	return m.subjectPattern("workflow_type_registry", "listen")
+}
+
 // RunInfoKey constructs a run info key with the given parameters
 // Pattern: grctl_run.{wf_type}.{wf_id}.{run_id}.info
 func (m *NATSManifest) RunInfoKey(wfType ext.WFType, wfID ext.WFID, runID ext.RunID) string {

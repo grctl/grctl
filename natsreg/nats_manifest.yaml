@@ -86,6 +86,15 @@ subjects:
       publish: grctl_bg_task
       listen: grctl_bg_task
 
+  workflow_type_registry:
+    # Workflow type registry: one rolled-up entry per workflow type
+    # (MaxMsgsPerSubject = 1 via per-subject rollup). Written atomically per
+    # worker catalog, read by direct-get per type.
+    stream: grctl_state
+    subject_patterns:
+      publish: grctl_registry.{wf_type}
+      listen: grctl_registry.>
+
   api:
     # Req-Reply subject Client -> Server
     # Client(api cmd) -> APISubject -> Server -> DirectiveSubject
@@ -94,3 +103,11 @@ subjects:
     subject_patterns:
       publish: grctl_api.workflow.{wf_id} # Server
       listen: grctl_api.> # Server
+      worker: grctl_api.worker # Worker -> Server commands
+
+  worker_cmd:
+    # Server -> Worker out-of-band signals. Core NATS request-reply, no stream.
+    stream: null
+    subject_patterns:
+      publish: grctl_worker_cmd.{worker_id}
+      listen: grctl_worker_cmd.{worker_id}

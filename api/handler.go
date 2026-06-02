@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"grctl/server/jsstore"
 	"grctl/server/run"
 	"grctl/server/types/external/v1"
 )
@@ -16,11 +17,12 @@ var (
 )
 
 type APIHandler struct {
-	runSvc *run.Service
+	runSvc   *run.Service
+	registry *jsstore.WorkflowTypeRegistry
 }
 
-func NewAPIHandler(runSvc *run.Service) *APIHandler {
-	return &APIHandler{runSvc: runSvc}
+func NewAPIHandler(runSvc *run.Service, registry *jsstore.WorkflowTypeRegistry) *APIHandler {
+	return &APIHandler{runSvc: runSvc, registry: registry}
 }
 
 func (h *APIHandler) handleMessage(msg external.Command) (any, error) {
@@ -35,6 +37,8 @@ func (h *APIHandler) handleMessage(msg external.Command) (any, error) {
 		return nil, h.handleTerminate(msg)
 	case external.CmdKindRunEvent:
 		return nil, h.handleEvent(msg)
+	case external.CmdKindWorkerRegister:
+		return nil, h.handleRegister(msg)
 	default:
 		return nil, ErrUnknownAPICommand
 	}
@@ -93,4 +97,20 @@ func (h *APIHandler) handleEvent(cmd external.Command) error {
 
 	ctx := context.Background()
 	return h.runSvc.Send(ctx, cmd)
+}
+
+func (h *APIHandler) handleRegister(cmd external.Command) error {
+	register, ok := cmd.Msg.(*external.RegisterCmd)
+	if !ok {
+		return fmt.Errorf("%w: expected RegisterCmd for kind %s, got %T",
+			ErrInvalidMessageType, cmd.Kind, cmd.Msg)
+	}
+
+	ctx := context.Background()
+	if err := h.registry.PutTypes(ctx, register.WorkerID, register.Types); err != nil {
+		return err
+	}
+
+	slog.Debug("Worker registered workflow types", "worker_id", register.WorkerID, "type_count", len(register.Types))
+	return nil
 }

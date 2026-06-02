@@ -38,10 +38,16 @@ func runWorkflowCancel(cmd *cobra.Command, args []string) error {
 
 	wfID := ext.WFID(cancelFlagID)
 
+	clientID, err := deriveClientID()
+	if err != nil {
+		return fmt.Errorf("derive client ID: %w", err)
+	}
+
 	command := ext.Command{
 		ID:        ext.NewCmdID(),
 		Kind:      ext.CmdKindRunCancel,
 		Timestamp: time.Now().UTC(),
+		SenderID:  clientID,
 		Msg: &ext.CancelCmd{
 			WFID:   wfID,
 			Reason: cancelFlagReason,

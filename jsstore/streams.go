@@ -32,6 +32,7 @@ func EnsureStateStream(ctx context.Context, js jetstream.JetStream, inMemory boo
 			natsreg.Manifest.RunStateListenerPattern(),
 			natsreg.Manifest.WorkerTaskListenerPattern(),
 			natsreg.Manifest.BgTaskSubject(),
+			natsreg.Manifest.WorkflowTypeRegistryListenerPattern(),
 		},
 		Storage:            storage,
 		AllowDirect:        true,

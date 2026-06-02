@@ -21,6 +21,7 @@ const CmdKindRunDescribe CmdKind = "run.describe"
 const CmdKindRunEvent CmdKind = "run.event"
 const CmdKindRunStart CmdKind = "run.start"
 const CmdKindRunTerminate CmdKind = "run.terminate"
+const CmdKindWorkerRegister CmdKind = "worker.register"
 
 // Messages sent by the client
 type StartCmd struct {
@@ -48,11 +49,31 @@ type EventCmd struct {
 	Payload   *any   `json:"payload" msgpack:"payload"`
 }
 
+// WorkflowTypeDef is the structural definition of a single workflow type as
+// reported by a worker: its entrypoint step and the names of its handlers.
+// It carries no timeout or retry configuration — that is a dependent ticket.
+type WorkflowTypeDef struct {
+	Type      WFType   `json:"type" msgpack:"type"`
+	StartStep string   `json:"start_step" msgpack:"start_step"`
+	Steps     []string `json:"steps" msgpack:"steps"`
+	Events    []string `json:"events" msgpack:"events"`
+	Queries   []string `json:"queries" msgpack:"queries"`
+}
+
+// RegisterCmd is sent once per worker startup to sync its catalog of workflow
+// type definitions to the server. WorkerID is explicit so this command is
+// independent of the SenderID envelope field.
+type RegisterCmd struct {
+	WorkerID string            `json:"worker_id" msgpack:"worker_id"`
+	Types    []WorkflowTypeDef `json:"types" msgpack:"types"`
+}
+
 type Command struct {
 	ID        CmdID          `json:"id" msgpack:"id"`
 	Kind      CmdKind        `json:"kind" msgpack:"kind"`
 	Timestamp time.Time      `json:"timestamp" msgpack:"timestamp"`
 	Msg       CommandMessage `json:"msg" msgpack:"msg"`
+	SenderID  string         `json:"sender_id" msgpack:"sender_id"`
 }
 
 // CommandMessage is an interface for command message types
@@ -65,13 +86,15 @@ func (CancelCmd) isCommandMsg()    {}
 func (DescribeCmd) isCommandMsg()  {}
 func (TerminateCmd) isCommandMsg() {}
 func (EventCmd) isCommandMsg()     {}
+func (RegisterCmd) isCommandMsg()  {}
 
 var commandMessageFactories = map[CmdKind]func() CommandMessage{
-	CmdKindRunStart:     func() CommandMessage { return &StartCmd{} },
-	CmdKindRunCancel:    func() CommandMessage { return &CancelCmd{} },
-	CmdKindRunDescribe:  func() CommandMessage { return &DescribeCmd{} },
-	CmdKindRunTerminate: func() CommandMessage { return &TerminateCmd{} },
-	CmdKindRunEvent:     func() CommandMessage { return &EventCmd{} },
+	CmdKindRunStart:       func() CommandMessage { return &StartCmd{} },
+	CmdKindRunCancel:      func() CommandMessage { return &CancelCmd{} },
+	CmdKindRunDescribe:    func() CommandMessage { return &DescribeCmd{} },
+	CmdKindRunTerminate:   func() CommandMessage { return &TerminateCmd{} },
+	CmdKindRunEvent:       func() CommandMessage { return &EventCmd{} },
+	CmdKindWorkerRegister: func() CommandMessage { return &RegisterCmd{} },
 }
 
 // commandWire is the compact wire representation of Command for msgpack
@@ -80,6 +103,7 @@ type commandWire struct {
 	Kind      CmdKind   `msgpack:"k"`
 	Msg       []byte    `msgpack:"m"`
 	Timestamp time.Time `msgpack:"t"`
+	SenderID  string    `msgpack:"s"`
 }
 
 // DecodeCmd decodes a command message based on its kind
@@ -105,6 +129,9 @@ func (c *Command) EncodeMsgpack(enc *msgpack.Encoder) error {
 	if c.Msg == nil {
 		return fmt.Errorf("command message cannot be nil")
 	}
+	if c.SenderID == "" {
+		return fmt.Errorf("command sender ID cannot be empty")
+	}
 
 	msgBytes, err := msgpack.Marshal(c.Msg)
 	if err != nil {
@@ -116,6 +143,7 @@ func (c *Command) EncodeMsgpack(enc *msgpack.Encoder) error {
 		Kind:      c.Kind,
 		Msg:       msgBytes,
 		Timestamp: c.Timestamp,
+		SenderID:  c.SenderID,
 	}
 
 	return enc.Encode(&wire)
@@ -143,6 +171,7 @@ func (c *Command) DecodeMsgpack(dec *msgpack.Decoder) error {
 		Kind:      wire.Kind,
 		Msg:       msg,
 		Timestamp: wire.Timestamp,
+		SenderID:  wire.SenderID,
 	}
 
 	return nil

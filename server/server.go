@@ -33,6 +33,8 @@ type bgTaskSvc interface {
 }
 
 type Server struct {
+	nc              *nats.Conn
+	senderID        string
 	apiSubscriber   *api.APISubscriber
 	directiveQueue  directiveSvc
 	runManager      *run.Manager
@@ -84,11 +86,19 @@ func NewServer(
 		return nil, fmt.Errorf("failed to initialize background task queue: %w", err)
 	}
 
+	registry := jsstore.NewWorkflowTypeRegistry(js, stateStream)
 	runAPI := run.NewService(stateStore, &cfg.Defaults)
-	apiHandler := api.NewAPIHandler(runAPI)
+	apiHandler := api.NewAPIHandler(runAPI, registry)
 	apiSubscriber := api.NewAPISubscriber(nc, apiHandler)
 
+	senderID, err := deriveServerID(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("derive server ID: %w", err)
+	}
+
 	return &Server{
+		nc:              nc,
+		senderID:        senderID,
 		apiSubscriber:   apiSubscriber,
 		directiveQueue:  directiveQueue,
 		runManager:      runManager,

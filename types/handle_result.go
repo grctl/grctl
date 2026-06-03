@@ -19,7 +19,6 @@ type CommitResult struct {
 type StateSnapshot struct {
 	RunState ext.RunState
 	Event    ext.Directive
-	Cancel   ext.Directive
 }
 
 // HandlerAction defines the outcome of processing a directive

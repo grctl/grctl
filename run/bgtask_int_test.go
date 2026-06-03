@@ -77,10 +77,9 @@ func (s *PurgeRunResidueIntegrationSuite) TestRemovesAllSubjectFamilies() {
 
 	payload := []byte("data")
 
-	// Populate all 5 subject families for the target wfID.
+	// Populate all subject families for the target wfID.
 	s.publishRaw(natsreg.Manifest.DirectiveSubject(wfType, wfID, runID), payload)
 	s.publishRaw(natsreg.Manifest.TimerSubject(wfID, ext.TimerKindStepTimeout, timerID), payload)
-	s.publishRaw(natsreg.Manifest.CancelInboxSubject(wfID), payload)
 	s.publishRaw(natsreg.Manifest.EventInboxSubject(wfID), payload)
 	s.publishRaw(natsreg.Manifest.WorkerTaskSubject(wfType, wfID, runID), payload)
 
@@ -91,7 +90,6 @@ func (s *PurgeRunResidueIntegrationSuite) TestRemovesAllSubjectFamilies() {
 
 	s.True(s.subjectEmpty(natsreg.Manifest.DirectiveSubject(wfType, wfID, runID)), "directive subject should be empty")
 	s.True(s.subjectEmpty(natsreg.Manifest.TimerSubject(wfID, ext.TimerKindStepTimeout, timerID)), "timer subject should be empty")
-	s.True(s.subjectEmpty(natsreg.Manifest.CancelInboxSubject(wfID)), "cancel inbox should be empty")
 	s.True(s.subjectEmpty(natsreg.Manifest.EventInboxSubject(wfID)), "event inbox should be empty")
 	s.True(s.subjectEmpty(natsreg.Manifest.WorkerTaskSubject(wfType, wfID, runID)), "worker task subject should be empty")
 

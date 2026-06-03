@@ -16,7 +16,7 @@ func TestWorkflowLifecycle(t *testing.T) {
 	t.Run("a workflow completes when its final step finishes", func(t *testing.T) {
 		d := stepResultDirective("final-step", ext.DirectiveKindComplete, &ext.Complete{Result: "done"})
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-final-step"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-final-step"), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -31,7 +31,7 @@ func TestWorkflowLifecycle(t *testing.T) {
 		failErr := &ext.Fail{Error: ext.ErrorDetails{Type: "RuntimeError", Message: "unrecoverable error"}}
 		d := stepResultDirective("risky-step", ext.DirectiveKindFail, failErr)
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-risky-step"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-risky-step"), 0, 0)
 		require.NoError(t, err)
 
 		// The step itself ran to completion; failing the run is a separate
@@ -44,10 +44,23 @@ func TestWorkflowLifecycle(t *testing.T) {
 		require.Equal(t, "RuntimeError", rs.requireRunError().Type)
 	})
 
-	t.Run("a running workflow is cancelled on request", func(t *testing.T) {
+	t.Run("a cancel during a step is deferred: sets PendingCancel and emits CancelReceived", func(t *testing.T) {
 		d := cancelDirective("operator stopped it")
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-current-step"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-current-step"), 0, 0)
+		require.NoError(t, err)
+
+		rs := newRecordSet(t, records)
+		rs.requireHistory(ext.HistoryKindRunCancelReceived)
+		pending := rs.requirePendingCancel()
+		require.Equal(t, d.ID, pending.ID)
+		rs.requireNoTerminalRunState()
+	})
+
+	t.Run("a cancel outside a step cancels the run immediately", func(t *testing.T) {
+		d := cancelDirective("operator stopped it")
+
+		records, err := plan(ctx, d, waitSnapshot(), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -64,7 +77,7 @@ func TestTerminate(t *testing.T) {
 	t.Run("terminate transitions the run to terminated state", func(t *testing.T) {
 		d := terminateDirective("operator killed it")
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-current-step"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-current-step"), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -78,7 +91,7 @@ func TestTerminate(t *testing.T) {
 		activeID := ext.NewDirectiveID()
 		d := terminateDirective("urgent stop")
 
-		records, err := plan(ctx, d, stepSnapshotWithWorker(activeID, workerID))
+		records, err := plan(ctx, d, stepSnapshotWithWorker(activeID, workerID), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -90,7 +103,7 @@ func TestTerminate(t *testing.T) {
 	t.Run("terminate does not send WorkerTerminateRun when no worker is known", func(t *testing.T) {
 		d := terminateDirective("no worker yet")
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-current-step"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-current-step"), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -101,7 +114,7 @@ func TestTerminate(t *testing.T) {
 		d := terminateDirective("too late")
 
 		for _, kind := range []ext.RunStateKind{ext.RunStateComplete, ext.RunStateFail, ext.RunStateCancel, ext.RunStateTerminate} {
-			records, err := plan(ctx, d, terminalSnapshot(kind))
+			records, err := plan(ctx, d, terminalSnapshot(kind), 0, 0)
 			require.NoError(t, err)
 			require.Nil(t, records)
 		}
@@ -124,7 +137,7 @@ func TestFinishedRun(t *testing.T) {
 
 	for _, tc := range finished {
 		t.Run("a "+tc.name+" run ignores a late event", func(t *testing.T) {
-			records, err := plan(ctx, eventDirective("late-signal", nil), terminalSnapshot(tc.kind))
+			records, err := plan(ctx, eventDirective("late-signal", nil), terminalSnapshot(tc.kind), 0, 0)
 
 			require.NoError(t, err)
 			require.Empty(t, records)

@@ -28,7 +28,6 @@ func EnsureStateStream(ctx context.Context, js jetstream.JetStream, inMemory boo
 			natsreg.Manifest.AllRunsErrorKeyPattern(),
 			natsreg.Manifest.AllWfKVKeyPattern(),
 			natsreg.Manifest.EventInboxListenerPattern(),
-			natsreg.Manifest.CancelListenerPattern(),
 			natsreg.Manifest.RunStateListenerPattern(),
 			natsreg.Manifest.WorkerTaskListenerPattern(),
 			natsreg.Manifest.BgTaskSubject(),

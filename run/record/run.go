@@ -164,17 +164,19 @@ func TerminateRun(d ext.Directive, currentState ext.RunState) ([]model.Record, e
 	return records, nil
 }
 
-func CancelReceived(d ext.Directive) ([]model.Record, error) {
-	records := make([]model.Record, 0, 2)
-	records = append(records, model.InboxRecord{Directive: d})
-
-	he, err := history.RunCancelScheduled(d)
+func CancelReceived(d ext.Directive, currentState ext.RunState) ([]model.Record, error) {
+	he, err := history.RunCancelReceived(d)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create run cancel scheduled history event: %w", err)
+		return nil, fmt.Errorf("failed to create run cancel received history event: %w", err)
 	}
-	records = append(records, model.HistoryRecord{History: he})
 
-	return records, nil
+	state := currentState
+	state.PendingCancel = &d
+
+	return []model.Record{
+		model.HistoryRecord{History: he},
+		model.RunStateRecord{State: state, ExpectedSeq: currentState.SeqID},
+	}, nil
 }
 
 func CancelRun(d ext.Directive, currentState ext.RunState) ([]model.Record, error) {

@@ -276,26 +276,6 @@ func (s *Record2NatsSuite) TestInboxRecord_EventKindUsesEventInboxSubject() {
 	require.Equal(s.T(), expected, msgs[0].Subject)
 }
 
-func (s *Record2NatsSuite) TestInboxRecord_CancelKindUsesCancelInboxSubject() {
-	wfID := ext.NewWFID()
-
-	r := models.InboxRecord{
-		Directive: ext.Directive{
-			Kind: ext.DirectiveKindCancel,
-			RunInfo: ext.RunInfo{
-				WFID: wfID,
-			},
-		},
-	}
-
-	msgs, err := InboxRecordToNatsMsgs(r)
-	require.NoError(s.T(), err)
-	require.Len(s.T(), msgs, 1)
-
-	expected := natsreg.Manifest.CancelInboxSubject(wfID)
-	require.Equal(s.T(), expected, msgs[0].Subject)
-}
-
 func (s *Record2NatsSuite) TestKVRecord_OneMessagePerKey() {
 	wfID := ext.NewWFID()
 	runID := ext.NewRunID()

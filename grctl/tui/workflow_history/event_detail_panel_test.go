@@ -99,7 +99,6 @@ func TestBuildDetailContent_AllEventTypes(t *testing.T) {
 		testEvent(ext.HistoryKindRunStarted, &ext.RunStarted{}),
 		testEvent(ext.HistoryKindRunCompleted, &ext.RunCompleted{Result: "ok", DurationMS: 100}),
 		testEvent(ext.HistoryKindRunFailed, &ext.RunFailed{Error: ext.ErrorDetails{Type: "E", Message: "m"}, DurationMS: 50}),
-		testEvent(ext.HistoryKindRunCancelScheduled, &ext.RunCancelScheduled{}),
 		testEvent(ext.HistoryKindRunCancelReceived, &ext.RunCancelReceived{}),
 		testEvent(ext.HistoryKindRunCancelled, &ext.RunCancelled{Reason: "user", DurationMS: 10}),
 		testEvent(ext.HistoryKindRunTimeout, &ext.RunTimeout{DurationMS: 5000}),

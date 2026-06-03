@@ -17,7 +17,7 @@ func TestStepPickedUp(t *testing.T) {
 		workerID := ext.WorkerID("worker-abc")
 		d := stepPickedUpDirective("step-a", workerID)
 
-		records, err := plan(ctx, d, stepSnapshot("some-directive"))
+		records, err := plan(ctx, d, stepSnapshot("some-directive"), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -32,7 +32,7 @@ func TestStepPickedUp(t *testing.T) {
 		d := stepPickedUpDirective("step-a", ext.WorkerID("w"))
 
 		for _, kind := range []ext.RunStateKind{ext.RunStateComplete, ext.RunStateFail, ext.RunStateCancel, ext.RunStateTerminate} {
-			records, err := plan(ctx, d, terminalSnapshot(kind))
+			records, err := plan(ctx, d, terminalSnapshot(kind), 0, 0)
 			require.NoError(t, err)
 			require.Nil(t, records)
 		}
@@ -46,7 +46,7 @@ func TestStep(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("a workflow starts by running its first step", func(t *testing.T) {
-		records, err := plan(ctx, startDirective(nil), emptySnapshot())
+		records, err := plan(ctx, startDirective(nil), emptySnapshot(), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -59,7 +59,7 @@ func TestStep(t *testing.T) {
 	t.Run("a completed step advances the workflow to its next step", func(t *testing.T) {
 		d := stepResultDirective("step-a", ext.DirectiveKindStep, &ext.Step{Name: "step-b"})
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-step-a"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-step-a"), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -74,7 +74,7 @@ func TestStep(t *testing.T) {
 		failErr := ext.ErrorDetails{Type: "ValueError", Message: "step blew up"}
 		d := stepResultDirective("step-a", ext.DirectiveKindFailStep, &ext.FailStep{StepName: "step-a", Error: failErr})
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-step-a"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-step-a"), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -101,7 +101,7 @@ func TestStep(t *testing.T) {
 			},
 		}
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-step-a"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-step-a"), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -112,7 +112,7 @@ func TestStep(t *testing.T) {
 		stepDirectiveID := ext.NewDirectiveID()
 		d := stepTimeoutDirective("step-a", stepDirectiveID)
 
-		records, err := plan(ctx, d, stepSnapshot(stepDirectiveID))
+		records, err := plan(ctx, d, stepSnapshot(stepDirectiveID), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)
@@ -128,7 +128,7 @@ func TestStep(t *testing.T) {
 		stepDirectiveID := ext.NewDirectiveID()
 		d := stepTimeoutDirective("step-a", stepDirectiveID)
 
-		records, err := plan(ctx, d, stepSnapshotWithWorker(stepDirectiveID, workerID))
+		records, err := plan(ctx, d, stepSnapshotWithWorker(stepDirectiveID, workerID), 0, 0)
 		require.NoError(t, err)
 
 		rs := newRecordSet(t, records)

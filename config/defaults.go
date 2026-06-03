@@ -10,5 +10,6 @@ func defaultConfigMap() map[string]any {
 		"nats.storage":                     "file",
 		"defaults.worker_response_timeout": "5s",
 		"defaults.step_timeout":            "5m",
+		"defaults.wait_timeout":            "1h",
 	}
 }

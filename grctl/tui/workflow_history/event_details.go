@@ -34,8 +34,6 @@ func eventDetails(event *ext.HistoryEvent) string {
 		return runCompletedDetail(event.RunID, msg)
 	case *ext.RunFailed:
 		return runFailedDetail(msg)
-	case *ext.RunCancelScheduled:
-		return runIDDetail(event.RunID)
 	case *ext.RunCancelled:
 		return runCancelledDetail(event.RunID, msg)
 	case *ext.RunTimeout:

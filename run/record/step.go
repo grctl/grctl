@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func StepStart(d ext.Directive, currentState ext.RunState) ([]model.Record, error) {
+func StepStart(d ext.Directive, currentState ext.RunState, defaultTimeoutMS uint32) ([]model.Record, error) {
 	records := make([]model.Record, 0, 4)
 
 	d.RunInfo.HistorySeqID = currentState.SeqID
@@ -21,7 +21,7 @@ func StepStart(d ext.Directive, currentState ext.RunState) ([]model.Record, erro
 
 	stepName := msg.StepName()
 
-	timer, err := StepTimeoutTimer(d)
+	timer, err := StepTimeoutTimer(d, defaultTimeoutMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create step timeout timer: %w", err)
 	}
@@ -189,9 +189,7 @@ func StepTimeout(d ext.Directive, currentState ext.RunState) ([]model.Record, er
 	return updates, nil
 }
 
-func StepTimeoutTimer(d ext.Directive) (ext.Timer, error) {
-	const defaultStepTimeoutMS = 3 * 1000
-
+func StepTimeoutTimer(d ext.Directive, defaultTimeoutMS uint32) (ext.Timer, error) {
 	msg, ok := d.Msg.(ext.DispatchableMessage)
 	if !ok {
 		return ext.Timer{}, fmt.Errorf("unexpected message type for directive kind %s: got %T", d.Kind, msg)
@@ -201,7 +199,7 @@ func StepTimeoutTimer(d ext.Directive) (ext.Timer, error) {
 	timeout := msg.TimeoutMS()
 	currentTime := time.Now().UTC()
 	if timeout == 0 {
-		timeout = defaultStepTimeoutMS
+		timeout = defaultTimeoutMS
 	}
 	expiresAt := currentTime.Add(time.Duration(timeout) * time.Millisecond)
 

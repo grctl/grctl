@@ -105,7 +105,7 @@ func (h *TimerMsgHandler) buildStepTimeoutDirective(timer ext.Timer) (ext.Direct
 		ID:      ext.NewDirectiveID(),
 		Kind:    ext.DirectiveKindStepTimeout,
 		RunInfo: runInfo,
-		Msg: ext.StepTimeout{
+		Msg: &ext.StepTimeout{
 			StepName:            dispatchable.StepName(),
 			OriginalDirectiveID: timer.Directive.ID,
 		},

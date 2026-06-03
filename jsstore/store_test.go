@@ -64,19 +64,6 @@ func (s *GetStateSnapshotTestSuite) makeEventDirective() ext.Directive {
 	}
 }
 
-func (s *GetStateSnapshotTestSuite) makeCancelDirective() ext.Directive {
-	return ext.Directive{
-		ID:   ext.NewDirectiveID(),
-		Kind: ext.DirectiveKindCancel,
-		RunInfo: ext.RunInfo{
-			WFID:   s.wfID,
-			ID:     s.runID,
-			WFType: s.wfType,
-		},
-		Msg: &ext.Cancel{},
-	}
-}
-
 // TestWaitEventWithEvent verifies that concurrent RunState and Event fetches
 // both populate the snapshot when the run is in Wait state.
 func (s *GetStateSnapshotTestSuite) TestWaitEventWithEvent() {
@@ -103,7 +90,6 @@ func (s *GetStateSnapshotTestSuite) TestWaitEventWithEvent() {
 
 	s.Equal(ext.RunStateWait, snapshot.RunState.Kind)
 	s.Equal(ext.DirectiveKindEvent, snapshot.Event.Kind)
-	s.Empty(snapshot.Cancel.Kind)
 }
 
 // TestEventCursorSkipsSeen verifies that LastEventSeqID correctly filters
@@ -149,39 +135,6 @@ func (s *GetStateSnapshotTestSuite) TestEventCursorSkipsSeen() {
 	gotSeqID := snapshot.Event.Msg.(*ext.Event).EventSeqID
 	s.Require().NotNil(gotSeqID)
 	s.NotEqual(event1SeqID, *gotSeqID)
-}
-
-// TestCancelSuppressesEvent verifies that a Cancel directive prevents
-// GetNextEvent from being called, leaving Event empty in the snapshot.
-func (s *GetStateSnapshotTestSuite) TestCancelSuppressesEvent() {
-	ctx := context.Background()
-
-	_, err := s.store.Commit(ctx, []models.Record{
-		models.RunStateRecord{
-			State: ext.RunState{
-				Kind:  ext.RunStateWait,
-				WFID:  s.wfID,
-				RunID: s.runID,
-			},
-		},
-	})
-	s.Require().NoError(err)
-
-	_, err = s.store.Commit(ctx, []models.Record{
-		models.InboxRecord{Directive: s.makeEventDirective()},
-	})
-	s.Require().NoError(err)
-
-	_, err = s.store.Commit(ctx, []models.Record{
-		models.InboxRecord{Directive: s.makeCancelDirective()},
-	})
-	s.Require().NoError(err)
-
-	snapshot, err := s.store.GetStateSnapshot(ctx, s.wfID, s.runID)
-	s.Require().NoError(err)
-
-	s.Equal(ext.DirectiveKindCancel, snapshot.Cancel.Kind)
-	s.Empty(snapshot.Event.Kind)
 }
 
 // HasRunDataTestSuite tests HasRunInput, HasRunOutput, and HasRunError.

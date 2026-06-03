@@ -32,6 +32,10 @@ type RunState struct {
 	// the worker publishes StepPickedUp). Nil until the first step is picked up.
 	WorkerID *WorkerID `json:"worker_id,omitempty" msgpack:"worker_id,omitempty"`
 
+	// PendingCancel holds the cancel directive received while a step is in progress.
+	// planFromStepResult checks this after the step finishes and transitions to cancelled.
+	PendingCancel *Directive `json:"pending_cancel,omitempty" msgpack:"pending_cancel,omitempty"`
+
 	// SeqID is the NATS stream sequence of the entry. Populated on read, not serialized.
 	SeqID uint64 `json:"-" msgpack:"-"`
 }

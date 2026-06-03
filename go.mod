@@ -24,7 +24,6 @@ require (
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/spf13/cobra v1.10.2
 	github.com/synadia-io/orbit.go/jetstreamext v0.2.0
-	golang.org/x/sync v0.20.0
 )
 
 require (

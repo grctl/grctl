@@ -53,7 +53,7 @@ func (s *TimerMsgHandlerTestSuite) TestStepTimeoutKindPublishesStepTimeoutDirect
 	s.Require().Len(s.publisher.published, 1)
 	d := s.publisher.published[0]
 	s.Equal(ext.DirectiveKindStepTimeout, d.Kind)
-	msg, ok := d.Msg.(ext.StepTimeout)
+	msg, ok := d.Msg.(*ext.StepTimeout)
 	s.True(ok)
 	s.Equal("test-step", msg.StepName)
 }
@@ -93,7 +93,7 @@ func (s *TimerMsgHandlerTestSuite) TestStepTimeoutKindWithStartDirective() {
 	s.Require().Len(s.publisher.published, 1)
 	d := s.publisher.published[0]
 	s.Equal(ext.DirectiveKindStepTimeout, d.Kind)
-	msg, ok := d.Msg.(ext.StepTimeout)
+	msg, ok := d.Msg.(*ext.StepTimeout)
 	s.True(ok)
 	s.Equal("start", msg.StepName)
 }

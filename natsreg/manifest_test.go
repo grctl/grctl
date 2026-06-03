@@ -26,11 +26,6 @@ func (s *ManifestSuite) TestTimerPurgePattern() {
 	s.Equal("grctl_timers.wf-abc.>", Manifest.TimerPurgePattern(wfID))
 }
 
-func (s *ManifestSuite) TestCancelInboxPurgePattern() {
-	wfID := ext.WFID("wf-abc")
-	s.Equal("grctl_cancel.wf-abc", Manifest.CancelInboxPurgePattern(wfID))
-}
-
 func (s *ManifestSuite) TestEventInboxPurgePattern() {
 	wfID := ext.WFID("wf-abc")
 	s.Equal("grctl_events.wf-abc", Manifest.EventInboxPurgePattern(wfID))

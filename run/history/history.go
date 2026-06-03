@@ -68,23 +68,6 @@ func RunFailed(d ext.Directive) (ext.HistoryEvent, error) {
 	return e, nil
 }
 
-func RunCancelScheduled(d ext.Directive) (ext.HistoryEvent, error) {
-	_, ok := d.Msg.(*ext.Cancel)
-	if !ok {
-		return ext.HistoryEvent{}, fmt.Errorf("expected CancelSchedule directive but got %T", d.Msg)
-	}
-
-	e := ext.HistoryEvent{
-		WFID:      d.RunInfo.WFID,
-		RunID:     d.RunInfo.ID,
-		Timestamp: d.Timestamp,
-		Kind:      ext.HistoryKindRunCancelScheduled,
-		Msg:       ext.RunCancelScheduled{},
-	}
-
-	return e, nil
-}
-
 func RunCancelReceived(d ext.Directive) (ext.HistoryEvent, error) {
 	_, ok := d.Msg.(*ext.Cancel)
 	if !ok {

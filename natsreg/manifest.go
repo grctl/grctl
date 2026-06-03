@@ -353,19 +353,6 @@ func (m *NATSManifest) RunStateListenerPattern() string {
 	return m.subjectPattern("run_state", "listen")
 }
 
-// CancelInboxSubject returns the subject for publishing a cancel for a workflow
-func (m *NATSManifest) CancelInboxSubject(wfID ext.WFID) string {
-	pattern := m.subjectPattern("cancel", "publish")
-	return substituteParams(pattern, map[string]string{
-		"wf_id": wfID.String(),
-	})
-}
-
-// CancelListenerPattern returns the listener pattern for cancel subjects
-func (m *NATSManifest) CancelListenerPattern() string {
-	return m.subjectPattern("cancel", "listen")
-}
-
 // AllRunsInfoKeyPattern returns the pattern to match all run info keys
 // Pattern: grctl_run.*.*.*.info (derived from infos pattern)
 func (m *NATSManifest) AllRunsInfoKeyPattern() string {
@@ -438,13 +425,6 @@ func (m *NATSManifest) DirectivePurgePattern(wfID ext.WFID) string {
 // Pattern: grctl_timers.{wfID}.>
 func (m *NATSManifest) TimerPurgePattern(wfID ext.WFID) string {
 	pattern := m.subjectPattern("timer", "purge")
-	return substituteParams(pattern, map[string]string{"wf_id": wfID.String()})
-}
-
-// CancelInboxPurgePattern returns the purge filter subject for the cancel inbox of a workflow run.
-// Pattern: grctl_cancel.{wfID}
-func (m *NATSManifest) CancelInboxPurgePattern(wfID ext.WFID) string {
-	pattern := m.subjectPattern("cancel", "purge")
 	return substituteParams(pattern, map[string]string{"wf_id": wfID.String()})
 }
 

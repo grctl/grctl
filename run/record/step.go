@@ -72,6 +72,29 @@ func StepStart(d ext.Directive, currentState ext.RunState) ([]model.Record, erro
 
 }
 
+func StepPickedUp(d ext.Directive, currentState ext.RunState) ([]model.Record, error) {
+	msg, ok := d.Msg.(*ext.StepPickedUp)
+	if !ok || msg == nil {
+		return nil, fmt.Errorf("expected StepPickedUp but got %T", d.Msg)
+	}
+
+	h, err := history.StepPickedUp(d)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create step.started history event: %w", err)
+	}
+
+	runState := currentState
+	runState.WorkerID = &msg.WorkerID
+
+	return []model.Record{
+		model.HistoryRecord{History: h},
+		model.RunStateRecord{
+			State:       runState,
+			ExpectedSeq: currentState.SeqID,
+		},
+	}, nil
+}
+
 func StepComplete(d ext.Directive, currentState ext.RunState) ([]model.Record, error) {
 	msg, ok := d.Msg.(*ext.StepResult)
 	if !ok || msg == nil {

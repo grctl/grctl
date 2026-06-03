@@ -18,20 +18,40 @@ type RunStore interface {
 	PublishDirective(ctx context.Context, d ext.Directive) error
 }
 
-type Service struct {
-	store  RunStore
-	config *config.DefaultsConfig
+// TypeRegistry is the interface Service uses to look up and store workflow type
+// definitions. The zero value of StartStepTimeoutMS means "use server default".
+type TypeRegistry interface {
+	PutTypes(ctx context.Context, workerID string, defs []ext.WorkflowTypeDef) error
+	GetStartStepTimeout(ctx context.Context, wfType ext.WFType) (uint32, error)
 }
 
-func NewService(store RunStore, config *config.DefaultsConfig) *Service {
+type Service struct {
+	store    RunStore
+	config   *config.DefaultsConfig
+	registry TypeRegistry
+}
+
+func NewService(store RunStore, config *config.DefaultsConfig, registry TypeRegistry) *Service {
 	return &Service{
-		store:  store,
-		config: config,
+		store:    store,
+		config:   config,
+		registry: registry,
 	}
 }
 
+func (m *Service) Register(ctx context.Context, cmd ext.RegisterCmd) error {
+	return m.registry.PutTypes(ctx, cmd.WorkerID, cmd.Types)
+}
+
 func (m *Service) StartRun(ctx context.Context, cmd ext.StartCmd) error {
-	timeout := uint32(m.config.StepTimeout.Milliseconds())
+	timeout, err := m.registry.GetStartStepTimeout(ctx, cmd.RunInfo.WFType)
+	if err != nil {
+		return err
+	}
+	if timeout == 0 {
+		timeout = uint32(m.config.StepTimeout.Milliseconds())
+	}
+
 	directive := ext.Directive{
 		ID:        ext.NewDirectiveID(),
 		Kind:      ext.DirectiveKindStart,

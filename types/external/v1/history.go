@@ -92,7 +92,8 @@ type RunTimeout struct {
 
 // StepStarted represents the beginning of a step.
 type StepStarted struct {
-	StepName string `json:"step_name" msgpack:"step_name"`
+	StepName string   `json:"step_name" msgpack:"step_name"`
+	WorkerID WorkerID `json:"worker_id" msgpack:"worker_id"`
 }
 
 // StepCompleted represents a successful step completion.

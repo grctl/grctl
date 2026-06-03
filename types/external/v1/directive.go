@@ -35,6 +35,7 @@ const DirectiveKindEvent DirectiveKind = "event"
 
 // Worker -> Server
 const DirectiveKindStepResult DirectiveKind = "step_result" //Successful step completion.
+const DirectiveKindStepPickedUp DirectiveKind = "step_picked_up"
 const DirectiveKindFail DirectiveKind = "fail"
 const DirectiveKindFailStep DirectiveKind = "fail_step"
 const DirectiveKindComplete DirectiveKind = "complete"
@@ -144,6 +145,12 @@ type Fail struct {
 	Error ErrorDetails `json:"error" msgpack:"error"`
 }
 
+type StepPickedUp struct {
+	StepName  string    `json:"step_name" msgpack:"step_name"`
+	WorkerID  WorkerID  `json:"worker_id" msgpack:"worker_id"`
+	Timestamp time.Time `json:"timestamp" msgpack:"timestamp"`
+}
+
 type StepResult struct {
 	ProcessedMsgKind DirectiveKind    `json:"processed_msg_kind" msgpack:"processed_msg_kind"`
 	ProcessedMsg     DirectiveMessage `json:"processed_msg" msgpack:"processed_msg"`
@@ -247,6 +254,7 @@ func (Wait) isDirectiveMessage()        {}
 func (WaitTimeout) isDirectiveMessage() {}
 
 func (Step) isDirectiveMessage()          {}
+func (StepPickedUp) isDirectiveMessage()  {}
 func (StepResult) isDirectiveMessage()    {}
 func (FailStep) isDirectiveMessage()      {}
 func (StepTimeout) isDirectiveMessage()   {}
@@ -272,6 +280,7 @@ var DirectiveFactories = map[DirectiveKind]func() DirectiveMessage{
 	DirectiveKindFailStep:      func() DirectiveMessage { return &FailStep{} },
 	DirectiveKindWait:          func() DirectiveMessage { return &Wait{} },
 	DirectiveKindStepResult:    func() DirectiveMessage { return &StepResult{} },
+	DirectiveKindStepPickedUp:  func() DirectiveMessage { return &StepPickedUp{} },
 	DirectiveKindStepTimeout:   func() DirectiveMessage { return &StepTimeout{} },
 	DirectiveKindWaitTimeout:   func() DirectiveMessage { return &WaitTimeout{} },
 	DirectiveKindWakeFromInbox: func() DirectiveMessage { return &WakeFromInbox{} },

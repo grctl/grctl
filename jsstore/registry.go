@@ -101,6 +101,17 @@ func (r *WorkflowTypeRegistry) GetType(ctx context.Context, wfType ext.WFType) (
 	return entry, nil
 }
 
+// GetStartStepTimeout returns the start step timeout in milliseconds for the
+// given workflow type. Returns ErrWorkflowTypeNotRegistered if the type has
+// never been registered.
+func (r *WorkflowTypeRegistry) GetStartStepTimeout(ctx context.Context, wfType ext.WFType) (uint32, error) {
+	entry, err := r.GetType(ctx, wfType)
+	if err != nil {
+		return 0, err
+	}
+	return entry.StartStepTimeoutMS, nil
+}
+
 // ListTypes returns every registered type. It scans all registry subjects and
 // is intended for operators and debugging, not any hot path.
 func (r *WorkflowTypeRegistry) ListTypes(ctx context.Context) ([]RegistryEntry, error) {

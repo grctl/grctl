@@ -138,6 +138,21 @@ func eventDirective(name string, payload any) ext.Directive {
 	}
 }
 
+// stepPickedUpDirective is a worker reporting that it picked up a step for execution.
+func stepPickedUpDirective(stepName string, workerID ext.WorkerID) ext.Directive {
+	return ext.Directive{
+		ID:        ext.NewDirectiveID(),
+		Timestamp: time.Now().UTC(),
+		Kind:      ext.DirectiveKindStepPickedUp,
+		RunInfo:   testRunInfo(),
+		Msg: &ext.StepPickedUp{
+			StepName:  stepName,
+			WorkerID:  workerID,
+			Timestamp: time.Now().UTC(),
+		},
+	}
+}
+
 // stepTimeoutDirective is a fired step-timeout timer translated into its directive.
 // originalID must match the snapshot's ActiveDirectiveID for the timeout to be honoured.
 func stepTimeoutDirective(stepName string, originalID ext.DirectiveID) ext.Directive {

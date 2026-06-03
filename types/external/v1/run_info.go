@@ -10,20 +10,22 @@ import (
 type RunStatus string
 
 const (
-	RunStatusPending   RunStatus = "pending"
-	RunStatusScheduled RunStatus = "scheduled"
-	RunStatusRunning   RunStatus = "running"
-	RunStatusCompleted RunStatus = "completed"
-	RunStatusFailed    RunStatus = "failed"
-	RunStatusCancelled RunStatus = "cancelled"
-	RunStatusTimedOut  RunStatus = "timed_out"
+	RunStatusPending    RunStatus = "pending"
+	RunStatusScheduled  RunStatus = "scheduled"
+	RunStatusRunning    RunStatus = "running"
+	RunStatusCompleted  RunStatus = "completed"
+	RunStatusFailed     RunStatus = "failed"
+	RunStatusCancelled  RunStatus = "cancelled"
+	RunStatusTimedOut   RunStatus = "timed_out"
+	RunStatusTerminated RunStatus = "terminated"
 )
 
 func (s RunStatus) IsTerminal() bool {
 	return s == RunStatusCompleted ||
 		s == RunStatusFailed ||
 		s == RunStatusCancelled ||
-		s == RunStatusTimedOut
+		s == RunStatusTimedOut ||
+		s == RunStatusTerminated
 }
 
 type WFID string
@@ -154,6 +156,12 @@ func (ri RunInfo) Fail(timestamp time.Time) (RunInfo, error) {
 
 func (ri RunInfo) Cancel(timestamp time.Time) (RunInfo, error) {
 	ri.Status = RunStatusCancelled
+	ri.CompletedAt = &timestamp
+	return ri, nil
+}
+
+func (ri RunInfo) Terminate(timestamp time.Time) (RunInfo, error) {
+	ri.Status = RunStatusTerminated
 	ri.CompletedAt = &timestamp
 	return ri, nil
 }

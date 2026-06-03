@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"grctl/server/jsstore"
 	model "grctl/server/types"
 )
 
@@ -36,6 +37,10 @@ var ApiErrorMap = map[error]grctlError{
 	model.ErrRunTerminal: {
 		Code:    4003,
 		Message: "Workflow run has already finished and cannot accept new commands",
+	},
+	jsstore.ErrWorkflowTypeNotRegistered: {
+		Code:    4004,
+		Message: "Workflow type not registered",
 	},
 	ErrInvalidMessageType: {
 		Code:    4005,

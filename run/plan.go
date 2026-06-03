@@ -159,6 +159,8 @@ func planTransition(_ context.Context, d ext.Directive, sn model.StateSnapshot) 
 	switch d.Kind {
 	case ext.DirectiveKindStep:
 		return record.StepStart(d, currentState)
+	case ext.DirectiveKindStepPickedUp:
+		return record.StepPickedUp(d, currentState)
 	case ext.DirectiveKindEvent:
 		return record.EventStart(d, currentState)
 	case ext.DirectiveKindStepTimeout:

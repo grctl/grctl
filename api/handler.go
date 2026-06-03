@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"grctl/server/jsstore"
 	"grctl/server/run"
 	"grctl/server/types/external/v1"
 )
@@ -17,12 +16,11 @@ var (
 )
 
 type APIHandler struct {
-	runSvc   *run.Service
-	registry *jsstore.WorkflowTypeRegistry
+	runSvc *run.Service
 }
 
-func NewAPIHandler(runSvc *run.Service, registry *jsstore.WorkflowTypeRegistry) *APIHandler {
-	return &APIHandler{runSvc: runSvc, registry: registry}
+func NewAPIHandler(runSvc *run.Service) *APIHandler {
+	return &APIHandler{runSvc: runSvc}
 }
 
 func (h *APIHandler) handleMessage(msg external.Command) (any, error) {
@@ -107,7 +105,7 @@ func (h *APIHandler) handleRegister(cmd external.Command) error {
 	}
 
 	ctx := context.Background()
-	if err := h.registry.PutTypes(ctx, register.WorkerID, register.Types); err != nil {
+	if err := h.runSvc.Register(ctx, *register); err != nil {
 		return err
 	}
 

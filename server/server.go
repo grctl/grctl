@@ -87,8 +87,8 @@ func NewServer(
 	}
 
 	registry := jsstore.NewWorkflowTypeRegistry(js, stateStream)
-	runAPI := run.NewService(stateStore, &cfg.Defaults)
-	apiHandler := api.NewAPIHandler(runAPI, registry)
+	runAPI := run.NewService(stateStore, &cfg.Defaults, registry)
+	apiHandler := api.NewAPIHandler(runAPI)
 	apiSubscriber := api.NewAPISubscriber(nc, apiHandler)
 
 	senderID, err := deriveServerID(cfg)

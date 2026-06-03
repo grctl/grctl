@@ -149,6 +149,25 @@ func StepStarted(d ext.Directive) (ext.HistoryEvent, error) {
 	return e, nil
 }
 
+func StepPickedUp(d ext.Directive) (ext.HistoryEvent, error) {
+	msg, ok := d.Msg.(*ext.StepPickedUp)
+	if !ok {
+		return ext.HistoryEvent{}, fmt.Errorf("expected StepPickedUp directive but got %T", d.Msg)
+	}
+
+	return ext.HistoryEvent{
+		WFID:      d.RunInfo.WFID,
+		RunID:     d.RunInfo.ID,
+		WorkerID:  msg.WorkerID,
+		Timestamp: msg.Timestamp,
+		Kind:      ext.HistoryKindStepStarted,
+		Msg: &ext.StepStarted{
+			StepName: msg.StepName,
+			WorkerID: msg.WorkerID,
+		},
+	}, nil
+}
+
 func StepCompleted(msg ext.StepResult, ri ext.RunInfo) (ext.HistoryEvent, error) {
 	stepName, err := msg.ProcStepName()
 	if err != nil {

@@ -22,6 +22,7 @@ const CmdKindRunEvent CmdKind = "run.event"
 const CmdKindRunStart CmdKind = "run.start"
 const CmdKindRunTerminate CmdKind = "run.terminate"
 const CmdKindWorkerRegister CmdKind = "worker.register"
+const CmdKindWorkerTerminateRun CmdKind = "worker.terminate_run"
 
 // Messages sent by the client
 type StartCmd struct {
@@ -51,13 +52,13 @@ type EventCmd struct {
 
 // WorkflowTypeDef is the structural definition of a single workflow type as
 // reported by a worker: its entrypoint step and the names of its handlers.
-// It carries no timeout or retry configuration — that is a dependent ticket.
 type WorkflowTypeDef struct {
-	Type      WFType   `json:"type" msgpack:"type"`
-	StartStep string   `json:"start_step" msgpack:"start_step"`
-	Steps     []string `json:"steps" msgpack:"steps"`
-	Events    []string `json:"events" msgpack:"events"`
-	Queries   []string `json:"queries" msgpack:"queries"`
+	Type               WFType   `json:"type" msgpack:"type"`
+	StartStep          string   `json:"start_step" msgpack:"start_step"`
+	Steps              []string `json:"steps" msgpack:"steps"`
+	Events             []string `json:"events" msgpack:"events"`
+	Queries            []string `json:"queries" msgpack:"queries"`
+	StartStepTimeoutMS uint32   `json:"start_step_timeout_ms" msgpack:"start_step_timeout_ms"`
 }
 
 // RegisterCmd is sent once per worker startup to sync its catalog of workflow
@@ -66,6 +67,12 @@ type WorkflowTypeDef struct {
 type RegisterCmd struct {
 	WorkerID string            `json:"worker_id" msgpack:"worker_id"`
 	Types    []WorkflowTypeDef `json:"types" msgpack:"types"`
+}
+
+// WorkerTerminateRunCmd is sent by the server to a specific worker to abort an
+// in-flight step immediately. The worker ACKs its JetStream message on CancelledError.
+type WorkerTerminateRunCmd struct {
+	RunID RunID `json:"run_id" msgpack:"run_id"`
 }
 
 type Command struct {
@@ -81,20 +88,22 @@ type CommandMessage interface {
 	isCommandMsg()
 }
 
-func (StartCmd) isCommandMsg()     {}
-func (CancelCmd) isCommandMsg()    {}
-func (DescribeCmd) isCommandMsg()  {}
-func (TerminateCmd) isCommandMsg() {}
-func (EventCmd) isCommandMsg()     {}
-func (RegisterCmd) isCommandMsg()  {}
+func (StartCmd) isCommandMsg()              {}
+func (CancelCmd) isCommandMsg()             {}
+func (DescribeCmd) isCommandMsg()           {}
+func (TerminateCmd) isCommandMsg()          {}
+func (EventCmd) isCommandMsg()              {}
+func (RegisterCmd) isCommandMsg()           {}
+func (WorkerTerminateRunCmd) isCommandMsg() {}
 
 var commandMessageFactories = map[CmdKind]func() CommandMessage{
-	CmdKindRunStart:       func() CommandMessage { return &StartCmd{} },
-	CmdKindRunCancel:      func() CommandMessage { return &CancelCmd{} },
-	CmdKindRunDescribe:    func() CommandMessage { return &DescribeCmd{} },
-	CmdKindRunTerminate:   func() CommandMessage { return &TerminateCmd{} },
-	CmdKindRunEvent:       func() CommandMessage { return &EventCmd{} },
-	CmdKindWorkerRegister: func() CommandMessage { return &RegisterCmd{} },
+	CmdKindRunStart:           func() CommandMessage { return &StartCmd{} },
+	CmdKindRunCancel:          func() CommandMessage { return &CancelCmd{} },
+	CmdKindRunDescribe:        func() CommandMessage { return &DescribeCmd{} },
+	CmdKindRunTerminate:       func() CommandMessage { return &TerminateCmd{} },
+	CmdKindRunEvent:           func() CommandMessage { return &EventCmd{} },
+	CmdKindWorkerRegister:     func() CommandMessage { return &RegisterCmd{} },
+	CmdKindWorkerTerminateRun: func() CommandMessage { return &WorkerTerminateRunCmd{} },
 }
 
 // commandWire is the compact wire representation of Command for msgpack

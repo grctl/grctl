@@ -7,13 +7,14 @@ import (
 type RunStateKind string
 
 const (
-	RunStateIdle     RunStateKind = "idle"
-	RunStateStart    RunStateKind = "start"
-	RunStateStep     RunStateKind = "step"
-	RunStateWait     RunStateKind = "wait"
-	RunStateComplete RunStateKind = "complete"
-	RunStateFail     RunStateKind = "fail"
-	RunStateCancel   RunStateKind = "cancel"
+	RunStateIdle      RunStateKind = "idle"
+	RunStateStart     RunStateKind = "start"
+	RunStateStep      RunStateKind = "step"
+	RunStateWait      RunStateKind = "wait"
+	RunStateComplete  RunStateKind = "complete"
+	RunStateFail      RunStateKind = "fail"
+	RunStateCancel    RunStateKind = "cancel"
+	RunStateTerminate RunStateKind = "terminate"
 )
 
 type RunState struct {
@@ -27,13 +28,16 @@ type RunState struct {
 	// Non-empty when Kind == RunStateStep, or Kind == RunStateWait with a timeout configured.
 	// Used to detect stale timeout directives.
 	ActiveDirectiveID DirectiveID `json:"active_directive_id,omitempty" msgpack:"active_directive_id,omitempty"`
+	// WorkerID is the ID of the worker currently executing the active step (set when
+	// the worker publishes StepPickedUp). Nil until the first step is picked up.
+	WorkerID *WorkerID `json:"worker_id,omitempty" msgpack:"worker_id,omitempty"`
 
 	// SeqID is the NATS stream sequence of the entry. Populated on read, not serialized.
 	SeqID uint64 `json:"-" msgpack:"-"`
 }
 
 func (s RunState) IsTerminal() bool {
-	return s.Kind == RunStateComplete || s.Kind == RunStateFail || s.Kind == RunStateCancel
+	return s.Kind == RunStateComplete || s.Kind == RunStateFail || s.Kind == RunStateCancel || s.Kind == RunStateTerminate
 }
 
 func NewRunState(d Directive, kind RunStateKind) RunState {

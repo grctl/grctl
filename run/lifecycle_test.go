@@ -57,6 +57,57 @@ func TestWorkflowLifecycle(t *testing.T) {
 	})
 }
 
+// TestTerminate maps what happens when an operator forcefully terminates a run.
+func TestTerminate(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("terminate transitions the run to terminated state", func(t *testing.T) {
+		d := terminateDirective("operator killed it")
+
+		records, err := plan(ctx, d, stepSnapshot("directive-of-current-step"))
+		require.NoError(t, err)
+
+		rs := newRecordSet(t, records)
+		rs.requireHistory(ext.HistoryKindRunTerminated)
+		rs.requireBgTask(ext.BackgroundTaskKindPurgeRunResidue)
+		require.Equal(t, ext.RunStateTerminate, rs.finalRunState().Kind)
+	})
+
+	t.Run("terminate sends WorkerTerminateRun when a worker is executing the active step", func(t *testing.T) {
+		workerID := ext.WorkerID("worker-xyz")
+		activeID := ext.NewDirectiveID()
+		d := terminateDirective("urgent stop")
+
+		records, err := plan(ctx, d, stepSnapshotWithWorker(activeID, workerID))
+		require.NoError(t, err)
+
+		rs := newRecordSet(t, records)
+		payload := rs.requireWorkerTerminateRun()
+		require.Equal(t, workerID, payload.WorkerID)
+		require.Equal(t, testRunID, payload.RunID)
+	})
+
+	t.Run("terminate does not send WorkerTerminateRun when no worker is known", func(t *testing.T) {
+		d := terminateDirective("no worker yet")
+
+		records, err := plan(ctx, d, stepSnapshot("directive-of-current-step"))
+		require.NoError(t, err)
+
+		rs := newRecordSet(t, records)
+		rs.requireNoBgTask(ext.BackgroundTaskKindWorkerTerminateRun)
+	})
+
+	t.Run("terminate is silently dropped for an already-terminal run", func(t *testing.T) {
+		d := terminateDirective("too late")
+
+		for _, kind := range []ext.RunStateKind{ext.RunStateComplete, ext.RunStateFail, ext.RunStateCancel, ext.RunStateTerminate} {
+			records, err := plan(ctx, d, terminalSnapshot(kind))
+			require.NoError(t, err)
+			require.Nil(t, records)
+		}
+	})
+}
+
 // TestFinishedRun maps the guard that a run which has already finished produces no
 // further effects, whatever stimulus arrives late.
 func TestFinishedRun(t *testing.T) {

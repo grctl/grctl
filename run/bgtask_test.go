@@ -11,6 +11,19 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+type fakeWorkerCmds struct {
+	sent []ext.Command
+	err  error
+}
+
+func (f *fakeWorkerCmds) PublishWorkerCommand(_ string, cmd ext.Command) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.sent = append(f.sent, cmd)
+	return nil
+}
+
 type fakePurger struct {
 	called []ext.WFID
 	err    error
@@ -45,15 +58,17 @@ func (f *fakeNotifier) PublishDirective(_ context.Context, d ext.Directive) erro
 
 type BgTaskHandlerSuite struct {
 	suite.Suite
-	purger   *fakePurger
-	notifier *fakeNotifier
-	handler  *BgTaskHandler
+	purger     *fakePurger
+	notifier   *fakeNotifier
+	workerCmds *fakeWorkerCmds
+	handler    *BgTaskHandler
 }
 
 func (s *BgTaskHandlerSuite) SetupTest() {
 	s.purger = &fakePurger{}
 	s.notifier = &fakeNotifier{}
-	s.handler = NewBgTaskHandler(nil, nil, s.purger, s.notifier, 3)
+	s.workerCmds = &fakeWorkerCmds{}
+	s.handler = NewBgTaskHandler(nil, nil, s.purger, s.notifier, s.workerCmds, 3)
 }
 
 func TestBgTaskHandler(t *testing.T) {
@@ -190,4 +205,55 @@ func (s *BgTaskHandlerSuite) TestNotifyParentComplete_MalformedPayload() {
 
 	s.Equal(intr.Processed(), result)
 	s.Len(s.notifier.published, 0)
+}
+
+func (s *BgTaskHandlerSuite) terminateTask(workerID ext.WorkerID, runID ext.RunID) ext.BackgroundTask {
+	task, err := ext.NewWorkerTerminateRunTask(ext.NewDirectiveID(), workerID, runID)
+	s.Require().NoError(err)
+	return task
+}
+
+func (s *BgTaskHandlerSuite) TestWorkerTerminateRun_SendsCommandToWorker() {
+	task := s.terminateTask("worker-1", "run-abc")
+
+	result := s.handler.Handle(context.Background(), task, 1)
+
+	s.Equal(intr.Processed(), result)
+	s.Require().Len(s.workerCmds.sent, 1)
+	cmd := s.workerCmds.sent[0]
+	s.Equal(ext.CmdKindWorkerTerminateRun, cmd.Kind)
+	msg, ok := cmd.Msg.(*ext.WorkerTerminateRunCmd)
+	s.Require().True(ok)
+	s.Equal(ext.RunID("run-abc"), msg.RunID)
+}
+
+func (s *BgTaskHandlerSuite) TestWorkerTerminateRun_WorkerUnreachable_IsProcessed() {
+	s.workerCmds.err = intr.ErrWorkerUnreachable
+	task := s.terminateTask("worker-gone", "run-abc")
+
+	result := s.handler.Handle(context.Background(), task, 1)
+
+	s.Equal(intr.Processed(), result)
+	s.Len(s.workerCmds.sent, 0)
+}
+
+func (s *BgTaskHandlerSuite) TestWorkerTerminateRun_TransientError_IsRetried() {
+	s.workerCmds.err = errors.New("nats transient error")
+	task := s.terminateTask("worker-1", "run-abc")
+
+	result := s.handler.Handle(context.Background(), task, 1)
+
+	s.Equal(intr.Retryable(RetryDelay), result)
+}
+
+func (s *BgTaskHandlerSuite) TestWorkerTerminateRun_MalformedPayload() {
+	task := ext.BackgroundTask{
+		Kind:    ext.BackgroundTaskKindWorkerTerminateRun,
+		Payload: []byte{0xFF, 0xFE, 0x00},
+	}
+
+	result := s.handler.Handle(context.Background(), task, 1)
+
+	s.Equal(intr.Processed(), result)
+	s.Len(s.workerCmds.sent, 0)
 }

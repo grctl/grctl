@@ -122,4 +122,18 @@ func TestStep(t *testing.T) {
 		require.Equal(t, ext.RunStateFail, rs.finalRunState().Kind)
 		require.Equal(t, "StepTimeout", rs.requireRunError().Type)
 	})
+
+	t.Run("a step timeout sends WorkerTerminateRun to the executing worker", func(t *testing.T) {
+		workerID := ext.WorkerID("worker-abc")
+		stepDirectiveID := ext.NewDirectiveID()
+		d := stepTimeoutDirective("step-a", stepDirectiveID)
+
+		records, err := plan(ctx, d, stepSnapshotWithWorker(stepDirectiveID, workerID))
+		require.NoError(t, err)
+
+		rs := newRecordSet(t, records)
+		payload := rs.requireWorkerTerminateRun()
+		require.Equal(t, workerID, payload.WorkerID)
+		require.Equal(t, testRunID, payload.RunID)
+	})
 }

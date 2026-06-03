@@ -171,6 +171,8 @@ func planTransition(_ context.Context, d ext.Directive, sn model.StateSnapshot) 
 		return record.FailRun(d, currentState)
 	case ext.DirectiveKindCancel:
 		return record.CancelRun(d, currentState)
+	case ext.DirectiveKindTerminate:
+		return record.TerminateRun(d, currentState)
 	case ext.DirectiveKindWait:
 		return record.Wait(d, sn)
 	case ext.DirectiveKindWaitTimeout:

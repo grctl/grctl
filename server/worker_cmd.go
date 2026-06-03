@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"grctl/server/natsreg"
+	model "grctl/server/types"
 	external "grctl/server/types/external/v1"
 
 	"github.com/nats-io/nats.go"
@@ -15,7 +16,7 @@ import (
 // ErrWorkerUnreachable is returned when a command cannot be delivered to the
 // target worker — either no active subscription exists or the request timed out.
 // Callers that need retry can use errors.Is to distinguish this from other errors.
-var ErrWorkerUnreachable = errors.New("worker unreachable")
+var ErrWorkerUnreachable = model.ErrWorkerUnreachable
 
 const workerCmdTimeout = 5 * time.Second
 
@@ -36,7 +37,7 @@ func (s *Server) PublishWorkerCommand(workerID string, cmd external.Command) err
 	_, err = s.nc.Request(subject, data, workerCmdTimeout)
 	if err != nil {
 		if errors.Is(err, nats.ErrNoResponders) || errors.Is(err, nats.ErrTimeout) {
-			return ErrWorkerUnreachable
+			return model.ErrWorkerUnreachable
 		}
 		return fmt.Errorf("worker command request failed: %w", err)
 	}

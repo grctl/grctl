@@ -111,6 +111,59 @@ func CompleteRun(d ext.Directive, currentState ext.RunState) ([]model.Record, er
 	return records, nil
 }
 
+func TerminateRun(d ext.Directive, currentState ext.RunState) ([]model.Record, error) {
+	records := make([]model.Record, 0, 6)
+
+	ri := d.RunInfo
+	ri, err := ri.Terminate(d.Timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create run terminated state update: %w", err)
+	}
+	records = append(records, model.RunInfoRecord{Info: ri})
+
+	h, err := history.RunTerminated(d)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create run terminated history event: %w", err)
+	}
+	records = append(records, model.HistoryRecord{History: h})
+
+	state := currentState
+	state.Kind = ext.RunStateTerminate
+	state.EnteredAt = time.Now().UTC()
+	state.ActiveDirectiveID = ""
+
+	records = append(records, model.RunStateRecord{
+		State:       state,
+		ExpectedSeq: currentState.SeqID,
+	})
+
+	if currentState.WorkerID != nil {
+		terminateTask, err := ext.NewWorkerTerminateRunTask(d.ID, *currentState.WorkerID, currentState.RunID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create worker terminate run task: %w", err)
+		}
+		records = append(records, model.BackgroundTaskRecord{Task: terminateTask})
+	}
+
+	termErr := &ext.ErrorDetails{Type: "Terminated", Message: "run was terminated"}
+	if msg, ok := d.Msg.(*ext.Terminate); ok && msg.Reason != "" {
+		termErr.Message = msg.Reason
+	}
+	callbackRecords, err := parentCallbackRecords(d, ext.RunStatusTerminated, nil, termErr)
+	if err != nil {
+		return nil, err
+	}
+	records = append(records, callbackRecords...)
+
+	purgeTask, err := ext.NewPurgeRunResidueTask(d.ID, d.RunInfo.WFID)
+	if err != nil {
+		return nil, fmt.Errorf("build purge run residue task: %w", err)
+	}
+	records = append(records, model.BackgroundTaskRecord{Task: purgeTask})
+
+	return records, nil
+}
+
 func CancelReceived(d ext.Directive) ([]model.Record, error) {
 	records := make([]model.Record, 0, 2)
 	records = append(records, model.InboxRecord{Directive: d})
@@ -203,6 +256,14 @@ func FailRun(d ext.Directive, currentState ext.RunState) ([]model.Record, error)
 		RunID: d.RunInfo.ID,
 		Error: msg.Error,
 	})
+
+	if currentState.WorkerID != nil {
+		terminateTask, err := ext.NewWorkerTerminateRunTask(d.ID, *currentState.WorkerID, currentState.RunID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create worker terminate run task: %w", err)
+		}
+		records = append(records, model.BackgroundTaskRecord{Task: terminateTask})
+	}
 
 	failErr := msg.Error
 	callbackRecords, err := parentCallbackRecords(d, ext.RunStatusFailed, nil, &failErr)

@@ -168,6 +168,25 @@ func stepTimeoutDirective(stepName string, originalID ext.DirectiveID) ext.Direc
 	}
 }
 
+// terminateDirective is an operator forcefully terminating a run.
+func terminateDirective(reason string) ext.Directive {
+	return ext.Directive{
+		ID:        ext.NewDirectiveID(),
+		Timestamp: time.Now().UTC(),
+		Kind:      ext.DirectiveKindTerminate,
+		RunInfo:   testRunInfo(),
+		Msg:       &ext.Terminate{Reason: reason},
+	}
+}
+
+// stepSnapshotWithWorker is like stepSnapshot but with a known WorkerID set — simulating
+// a run where StepPickedUp has been processed for the active step.
+func stepSnapshotWithWorker(activeDirectiveID ext.DirectiveID, workerID ext.WorkerID) model.StateSnapshot {
+	sn := stepSnapshot(activeDirectiveID)
+	sn.RunState.WorkerID = &workerID
+	return sn
+}
+
 // recordSet is the assertion surface over the records plan emitted for one directive.
 type recordSet struct {
 	t       *testing.T
@@ -282,6 +301,14 @@ func (rs recordSet) requireRunOutput() any {
 	}
 	require.Fail(rs.t, "expected a run-output record but none was emitted")
 	return nil
+}
+
+func (rs recordSet) requireWorkerTerminateRun() ext.WorkerTerminateRunPayload {
+	rs.t.Helper()
+	task := rs.requireBgTask(ext.BackgroundTaskKindWorkerTerminateRun)
+	var payload ext.WorkerTerminateRunPayload
+	require.NoError(rs.t, msgpack.Unmarshal(task.Payload, &payload))
+	return payload
 }
 
 func (rs recordSet) requireRunError() ext.ErrorDetails {

@@ -17,6 +17,7 @@ const HistoryKindRunCancelScheduled HistoryKind = "run.cancel_scheduled"
 const HistoryKindRunCancelled HistoryKind = "run.cancelled"
 const HistoryKindRunCompleted HistoryKind = "run.completed"
 const HistoryKindRunFailed HistoryKind = "run.failed"
+const HistoryKindRunTerminated HistoryKind = "run.terminated"
 
 const HistoryKindStepCancelled HistoryKind = "step.cancelled"
 const HistoryKindStepCompleted HistoryKind = "step.completed"
@@ -81,6 +82,12 @@ type RunCancelReceived struct{}
 
 // RunCancelled represents a cancelled workflow.
 type RunCancelled struct {
+	Reason     string `json:"reason" msgpack:"reason"`
+	DurationMS int64  `json:"duration_ms" msgpack:"duration_ms"`
+}
+
+// RunTerminated represents a forcefully terminated workflow.
+type RunTerminated struct {
 	Reason     string `json:"reason" msgpack:"reason"`
 	DurationMS int64  `json:"duration_ms" msgpack:"duration_ms"`
 }
@@ -220,6 +227,7 @@ func (RunFailed) isHistoryMessage()          {}
 func (RunCancelScheduled) isHistoryMessage() {}
 func (RunCancelReceived) isHistoryMessage()  {}
 func (RunCancelled) isHistoryMessage()       {}
+func (RunTerminated) isHistoryMessage()      {}
 func (RunTimeout) isHistoryMessage()         {}
 
 func (StepStarted) isHistoryMessage()   {}
@@ -253,6 +261,7 @@ var historyMessageFactories = map[HistoryKind]func() HistoryMessage{
 	HistoryKindRunCancelScheduled: func() HistoryMessage { return &RunCancelScheduled{} },
 	HistoryKindRunCancelReceived:  func() HistoryMessage { return &RunCancelReceived{} },
 	HistoryKindRunCancelled:       func() HistoryMessage { return &RunCancelled{} },
+	HistoryKindRunTerminated:      func() HistoryMessage { return &RunTerminated{} },
 	HistoryKindRunTimeout:         func() HistoryMessage { return &RunTimeout{} },
 
 	HistoryKindStepStarted:   func() HistoryMessage { return &StepStarted{} },

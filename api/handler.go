@@ -76,14 +76,14 @@ func (h *APIHandler) handleDescribe(cmd external.Command) (any, error) {
 }
 
 func (h *APIHandler) handleTerminate(cmd external.Command) error {
-	terminate, ok := cmd.Msg.(*external.TerminateCmd)
+	_, ok := cmd.Msg.(*external.TerminateCmd)
 	if !ok {
 		return fmt.Errorf("%w: expected TerminateCmd for kind %s, got %T",
 			ErrInvalidMessageType, cmd.Kind, cmd.Msg)
 	}
 
-	slog.Debug("Workflow terminated", "WorkflowID", terminate.WFID)
-	return nil
+	ctx := context.Background()
+	return h.runSvc.Terminate(ctx, cmd)
 }
 
 func (h *APIHandler) handleEvent(cmd external.Command) error {

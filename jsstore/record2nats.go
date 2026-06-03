@@ -6,8 +6,6 @@ import (
 	models "grctl/server/types"
 	"time"
 
-	ext "grctl/server/types/external/v1"
-
 	"github.com/nats-io/nats.go"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -168,11 +166,9 @@ func InboxRecordToNatsMsgs(r models.InboxRecord) ([]nats.Msg, error) {
 		return nil, fmt.Errorf("failed to marshal directive: %w", err)
 	}
 
-	msg := nats.Msg{Data: data}
-	if r.Directive.Kind == ext.DirectiveKindCancel {
-		msg.Subject = natsreg.Manifest.CancelInboxSubject(r.Directive.RunInfo.WFID)
-	} else {
-		msg.Subject = natsreg.Manifest.EventInboxSubject(r.Directive.RunInfo.WFID)
+	msg := nats.Msg{
+		Subject: natsreg.Manifest.EventInboxSubject(r.Directive.RunInfo.WFID),
+		Data:    data,
 	}
 
 	return []nats.Msg{msg}, nil

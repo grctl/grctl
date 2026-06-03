@@ -13,7 +13,6 @@ const HistoryKindRunScheduled HistoryKind = "run.scheduled"
 const HistoryKindRunStarted HistoryKind = "run.started"
 const HistoryKindRunTimeout HistoryKind = "run.timeout"
 const HistoryKindRunCancelReceived HistoryKind = "run.cancel_received"
-const HistoryKindRunCancelScheduled HistoryKind = "run.cancel_scheduled"
 const HistoryKindRunCancelled HistoryKind = "run.cancelled"
 const HistoryKindRunCompleted HistoryKind = "run.completed"
 const HistoryKindRunFailed HistoryKind = "run.failed"
@@ -77,7 +76,6 @@ type RunFailed struct {
 	DurationMS int64        `json:"duration_ms" msgpack:"duration_ms"`
 }
 
-type RunCancelScheduled struct{}
 type RunCancelReceived struct{}
 
 // RunCancelled represents a cancelled workflow.
@@ -220,15 +218,14 @@ type ParentEventSent struct {
 	ParentWFID   string `json:"parent_wf_id,omitempty" msgpack:"parent_wf_id,omitempty"`
 }
 
-func (RunScheduled) isHistoryMessage()       {}
-func (RunStarted) isHistoryMessage()         {}
-func (RunCompleted) isHistoryMessage()       {}
-func (RunFailed) isHistoryMessage()          {}
-func (RunCancelScheduled) isHistoryMessage() {}
-func (RunCancelReceived) isHistoryMessage()  {}
-func (RunCancelled) isHistoryMessage()       {}
-func (RunTerminated) isHistoryMessage()      {}
-func (RunTimeout) isHistoryMessage()         {}
+func (RunScheduled) isHistoryMessage()      {}
+func (RunStarted) isHistoryMessage()        {}
+func (RunCompleted) isHistoryMessage()      {}
+func (RunFailed) isHistoryMessage()         {}
+func (RunCancelReceived) isHistoryMessage() {}
+func (RunCancelled) isHistoryMessage()      {}
+func (RunTerminated) isHistoryMessage()     {}
+func (RunTimeout) isHistoryMessage()        {}
 
 func (StepStarted) isHistoryMessage()   {}
 func (StepCompleted) isHistoryMessage() {}
@@ -254,15 +251,14 @@ func (ChildWorkflowStarted) isHistoryMessage() {}
 func (ParentEventSent) isHistoryMessage()      {}
 
 var historyMessageFactories = map[HistoryKind]func() HistoryMessage{
-	HistoryKindRunScheduled:       func() HistoryMessage { return &RunScheduled{} },
-	HistoryKindRunStarted:         func() HistoryMessage { return &RunStarted{} },
-	HistoryKindRunCompleted:       func() HistoryMessage { return &RunCompleted{} },
-	HistoryKindRunFailed:          func() HistoryMessage { return &RunFailed{} },
-	HistoryKindRunCancelScheduled: func() HistoryMessage { return &RunCancelScheduled{} },
-	HistoryKindRunCancelReceived:  func() HistoryMessage { return &RunCancelReceived{} },
-	HistoryKindRunCancelled:       func() HistoryMessage { return &RunCancelled{} },
-	HistoryKindRunTerminated:      func() HistoryMessage { return &RunTerminated{} },
-	HistoryKindRunTimeout:         func() HistoryMessage { return &RunTimeout{} },
+	HistoryKindRunScheduled:      func() HistoryMessage { return &RunScheduled{} },
+	HistoryKindRunStarted:        func() HistoryMessage { return &RunStarted{} },
+	HistoryKindRunCompleted:      func() HistoryMessage { return &RunCompleted{} },
+	HistoryKindRunFailed:         func() HistoryMessage { return &RunFailed{} },
+	HistoryKindRunCancelReceived: func() HistoryMessage { return &RunCancelReceived{} },
+	HistoryKindRunCancelled:      func() HistoryMessage { return &RunCancelled{} },
+	HistoryKindRunTerminated:     func() HistoryMessage { return &RunTerminated{} },
+	HistoryKindRunTimeout:        func() HistoryMessage { return &RunTimeout{} },
 
 	HistoryKindStepStarted:   func() HistoryMessage { return &StepStarted{} },
 	HistoryKindStepCompleted: func() HistoryMessage { return &StepCompleted{} },

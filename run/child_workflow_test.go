@@ -27,7 +27,7 @@ func TestChildWorkflow(t *testing.T) {
 			parentWFID, callbackStep,
 		)
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-final-step"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-final-step"), 0, 0)
 		require.NoError(t, err)
 
 		payload := newRecordSet(t, records).requireParentNotification()
@@ -46,7 +46,7 @@ func TestChildWorkflow(t *testing.T) {
 			parentWFID, callbackStep,
 		)
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-risky-step"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-risky-step"), 0, 0)
 		require.NoError(t, err)
 
 		payload := newRecordSet(t, records).requireParentNotification()
@@ -56,10 +56,24 @@ func TestChildWorkflow(t *testing.T) {
 		require.Equal(t, "RuntimeError", payload.Error.Type)
 	})
 
-	t.Run("a cancelled child workflow notifies its parent with the reason", func(t *testing.T) {
+	t.Run("a cancelled child workflow notifies its parent when cancel is immediate (outside a step)", func(t *testing.T) {
 		d := withParentCallback(cancelDirective("parent asked to stop"), parentWFID, callbackStep)
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-current-step"))
+		records, err := plan(ctx, d, waitSnapshot(), 0, 0)
+		require.NoError(t, err)
+
+		payload := newRecordSet(t, records).requireParentNotification()
+		require.Equal(t, ext.RunStatusCancelled, payload.Status)
+		require.NotNil(t, payload.Error)
+		require.Equal(t, "parent asked to stop", payload.Error.Message)
+	})
+
+	t.Run("a cancelled child workflow notifies its parent when cancel is deferred (step finishes after cancel)", func(t *testing.T) {
+		pendingCancel := withParentCallback(cancelDirective("parent asked to stop"), parentWFID, callbackStep)
+		sn := stepSnapshotWithPendingCancel("step-directive", pendingCancel)
+
+		d := stepResultDirective("my-step", ext.DirectiveKindStep, &ext.Step{Name: "next-step"})
+		records, err := plan(ctx, d, sn, 0, 0)
 		require.NoError(t, err)
 
 		payload := newRecordSet(t, records).requireParentNotification()
@@ -71,7 +85,7 @@ func TestChildWorkflow(t *testing.T) {
 	t.Run("a workflow with no parent produces no parent notification", func(t *testing.T) {
 		d := stepResultDirective("final-step", ext.DirectiveKindComplete, &ext.Complete{Result: "output"})
 
-		records, err := plan(ctx, d, stepSnapshot("directive-of-final-step"))
+		records, err := plan(ctx, d, stepSnapshot("directive-of-final-step"), 0, 0)
 		require.NoError(t, err)
 
 		newRecordSet(t, records).requireNoBgTask(ext.BackgroundTaskKindNotifyParentComplete)

@@ -153,3 +153,45 @@ func (s *ServiceSuite) TestCancel_RejectsTerminalRun() {
 
 	s.True(errors.Is(err, model.ErrRunTerminal))
 }
+
+func (s *ServiceSuite) TestTerminate_RejectsTerminalRun() {
+	wfID := ext.NewWFID()
+	s.store.runInfo = ext.RunInfo{
+		WFID:   wfID,
+		Status: ext.RunStatusCompleted,
+	}
+
+	cmd := ext.Command{
+		Msg: &ext.TerminateCmd{
+			WFID:   wfID,
+			Reason: "too late",
+		},
+	}
+
+	err := s.svc.Terminate(context.Background(), cmd)
+
+	s.True(errors.Is(err, model.ErrRunTerminal))
+}
+
+func (s *ServiceSuite) TestTerminate_PublishesTerminateDirective() {
+	wfID := ext.NewWFID()
+	s.store.runInfo = ext.RunInfo{
+		WFID:   wfID,
+		Status: ext.RunStatusRunning,
+	}
+
+	cmd := ext.Command{
+		Msg: &ext.TerminateCmd{
+			WFID:   wfID,
+			Reason: "stop it",
+		},
+	}
+
+	err := s.svc.Terminate(context.Background(), cmd)
+
+	s.NoError(err)
+	s.Equal(ext.DirectiveKindTerminate, s.store.publishedDir.Kind)
+	terminate, ok := s.store.publishedDir.Msg.(*ext.Terminate)
+	s.True(ok)
+	s.Equal("stop it", terminate.Reason)
+}

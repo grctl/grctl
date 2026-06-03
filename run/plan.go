@@ -25,7 +25,7 @@ import (
 // cancel) is ignored: Plan returns no records, the run-observable result being
 // that nothing changes. This is the late-stimulus guard for the whole state
 // machine, so it lives here rather than in any delivery handler.
-func plan(ctx context.Context, d ext.Directive, sn model.StateSnapshot) ([]model.Record, error) {
+func plan(ctx context.Context, d ext.Directive, sn model.StateSnapshot, defaultTimeoutMS uint32, defaultWaitTimeoutMS uint32) ([]model.Record, error) {
 	if sn.RunState.IsTerminal() {
 		slog.DebugContext(ctx, "ignoring directive for terminal run", "kind", d.Kind)
 		return nil, nil
@@ -33,19 +33,21 @@ func plan(ctx context.Context, d ext.Directive, sn model.StateSnapshot) ([]model
 
 	switch d.Kind {
 	case ext.DirectiveKindStart:
-		return planFromRunStart(ctx, d)
+		return planFromRunStart(ctx, d, defaultTimeoutMS)
 	case ext.DirectiveKindStepResult:
-		return planFromStepResult(ctx, d, sn)
+		return planFromStepResult(ctx, d, sn, defaultTimeoutMS, defaultWaitTimeoutMS)
+	case ext.DirectiveKindCancel:
+		return planCancel(d, sn)
 	case ext.DirectiveKindEvent:
 		return record.EventReceived(d, sn)
 	case ext.DirectiveKindWakeFromInbox:
-		return planWakeFromInbox(ctx, sn)
+		return planWakeFromInbox(ctx, sn, defaultTimeoutMS, defaultWaitTimeoutMS)
 	default:
-		return planTransition(ctx, d, sn)
+		return planTransition(ctx, d, sn, defaultTimeoutMS, defaultWaitTimeoutMS)
 	}
 }
 
-func planFromRunStart(_ context.Context, d ext.Directive) ([]model.Record, error) {
+func planFromRunStart(_ context.Context, d ext.Directive, defaultTimeoutMS uint32) ([]model.Record, error) {
 	_, ok := d.Msg.(*ext.Start)
 	if !ok {
 		return nil, fmt.Errorf("expected Start message but got %T", d.Msg)
@@ -79,7 +81,7 @@ func planFromRunStart(_ context.Context, d ext.Directive) ([]model.Record, error
 	records = append(records, runStateUpdate)
 
 	// TODO: We should use CreateTransitionRecords here instead of StepStart
-	startStepRecords, err := record.StepStart(d, runState)
+	startStepRecords, err := record.StepStart(d, runState, defaultTimeoutMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create start step records during run start: %w", err)
 	}
@@ -89,7 +91,7 @@ func planFromRunStart(_ context.Context, d ext.Directive) ([]model.Record, error
 	return records, nil
 }
 
-func planFromStepResult(ctx context.Context, d ext.Directive, sn model.StateSnapshot) ([]model.Record, error) {
+func planFromStepResult(ctx context.Context, d ext.Directive, sn model.StateSnapshot, defaultTimeoutMS uint32, defaultWaitTimeoutMS uint32) ([]model.Record, error) {
 	var records []model.Record
 	msg, ok := d.Msg.(*ext.StepResult)
 	if !ok {
@@ -134,7 +136,15 @@ func planFromStepResult(ctx context.Context, d ext.Directive, sn model.StateSnap
 	}
 	records = append(records, stepCompleteRecords...)
 
-	transitionRecords, err := planTransition(ctx, nextD, sn)
+	if sn.RunState.PendingCancel != nil {
+		cancelRecords, err := record.CancelRun(*sn.RunState.PendingCancel, sn.RunState)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build cancel run records: %w", err)
+		}
+		return append(records, cancelRecords...), nil
+	}
+
+	transitionRecords, err := planTransition(ctx, nextD, sn, defaultTimeoutMS, defaultWaitTimeoutMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build transition records: %w", err)
 	}
@@ -143,40 +153,45 @@ func planFromStepResult(ctx context.Context, d ext.Directive, sn model.StateSnap
 	return records, nil
 }
 
-func planWakeFromInbox(ctx context.Context, sn model.StateSnapshot) ([]model.Record, error) {
+func planCancel(d ext.Directive, sn model.StateSnapshot) ([]model.Record, error) {
+	if sn.RunState.Kind == ext.RunStateStep {
+		return record.CancelReceived(d, sn.RunState)
+	}
+	return record.CancelRun(d, sn.RunState)
+}
+
+func planWakeFromInbox(ctx context.Context, sn model.StateSnapshot, defaultTimeoutMS uint32, defaultWaitTimeoutMS uint32) ([]model.Record, error) {
 	if sn.RunState.Kind != ext.RunStateWait || sn.Event.ID == "" {
 		return nil, nil
 	}
 
-	return planTransition(ctx, sn.Event, sn)
+	return planTransition(ctx, sn.Event, sn, defaultTimeoutMS, defaultWaitTimeoutMS)
 }
 
 // Non orchestrated directive transition records
-func planTransition(_ context.Context, d ext.Directive, sn model.StateSnapshot) ([]model.Record, error) {
+func planTransition(_ context.Context, d ext.Directive, sn model.StateSnapshot, defaultTimeoutMS uint32, defaultWaitTimeoutMS uint32) ([]model.Record, error) {
 	currentState := sn.RunState
 	slog.Debug(fmt.Sprintf("Creating records for directive %s", d.Kind))
 
 	switch d.Kind {
 	case ext.DirectiveKindStep:
-		return record.StepStart(d, currentState)
+		return record.StepStart(d, currentState, defaultTimeoutMS)
 	case ext.DirectiveKindStepPickedUp:
 		return record.StepPickedUp(d, currentState)
 	case ext.DirectiveKindEvent:
-		return record.EventStart(d, currentState)
+		return record.EventStart(d, currentState, defaultTimeoutMS)
 	case ext.DirectiveKindStepTimeout:
 		return record.StepTimeout(d, currentState)
 	case ext.DirectiveKindComplete:
 		return record.CompleteRun(d, currentState)
 	case ext.DirectiveKindFail:
 		return record.FailRun(d, currentState)
-	case ext.DirectiveKindCancel:
-		return record.CancelRun(d, currentState)
 	case ext.DirectiveKindTerminate:
 		return record.TerminateRun(d, currentState)
 	case ext.DirectiveKindWait:
-		return record.Wait(d, sn)
+		return record.Wait(d, sn, defaultWaitTimeoutMS)
 	case ext.DirectiveKindWaitTimeout:
-		return record.WaitTimeout(d, currentState)
+		return record.WaitTimeout(d, currentState, defaultTimeoutMS)
 	default:
 		slog.Warn("unknown directive kind", "kind", d.Kind)
 		// Unknown kinds should be ACKed to avoid retry loops

@@ -65,7 +65,26 @@ func (s *TerminalCleanupSuite) TearDownTest() {
 	s.ns.WaitForShutdown()
 }
 
+func (s *TerminalCleanupSuite) registerWorkflowType(wfType ext.WFType) {
+	cmd := ext.Command{
+		ID:        ext.NewCmdID(),
+		Kind:      ext.CmdKindWorkerRegister,
+		Timestamp: time.Now().UTC(),
+		SenderID:  "w:test-worker",
+		Msg: &ext.RegisterCmd{
+			WorkerID: "test-worker",
+			Types:    []ext.WorkflowTypeDef{{Type: wfType}},
+		},
+	}
+	data, err := msgpack.Marshal(&cmd)
+	s.Require().NoError(err)
+	_, err = s.nc.Request(natsreg.Manifest.APISubject(ext.WFID("register")), data, 3*time.Second)
+	s.Require().NoError(err)
+}
+
 func (s *TerminalCleanupSuite) startRun(wfID ext.WFID, runID ext.RunID, wfType ext.WFType) {
+	s.registerWorkflowType(wfType)
+
 	cmd := ext.Command{
 		ID:        ext.NewCmdID(),
 		Kind:      ext.CmdKindRunStart,
@@ -204,6 +223,96 @@ func (s *TerminalCleanupSuite) TestStepTimeoutIsCleaned() {
 	s.Contains(kinds, ext.HistoryKindRunStarted)
 	s.Contains(kinds, ext.HistoryKindStepTimeout)
 	s.Contains(kinds, ext.HistoryKindRunFailed)
+}
+
+// TestTerminateRunReachesTerminateState verifies that sending a terminate command
+// via the API transitions the run to RunStateTerminate and emits history.
+func (s *TerminalCleanupSuite) TestTerminateRunReachesTerminateState() {
+	ctx := context.Background()
+	wfID := ext.NewWFID()
+	runID := ext.NewRunID()
+	wfType := ext.NewWFType("test-workflow")
+
+	s.startRun(wfID, runID, wfType)
+	s.waitForRunStateKind(ctx, wfID, runID, ext.RunStateStep)
+
+	terminateCmd := ext.Command{
+		ID:        ext.NewCmdID(),
+		Kind:      ext.CmdKindRunTerminate,
+		Timestamp: time.Now().UTC(),
+		SenderID:  "c:test-client",
+		Msg: &ext.TerminateCmd{
+			WFID:   wfID,
+			Reason: "integration test termination",
+		},
+	}
+	data, err := msgpack.Marshal(&terminateCmd)
+	s.Require().NoError(err)
+	_, err = s.nc.Request(natsreg.Manifest.APISubject(wfID), data, 3*time.Second)
+	s.Require().NoError(err)
+
+	s.waitForRunStateKind(ctx, wfID, runID, ext.RunStateTerminate)
+
+	history, err := s.stateStore.GetHistoryForRun(ctx, wfID, runID)
+	s.Require().NoError(err)
+	kinds := collectHistoryKinds(history)
+	s.Contains(kinds, ext.HistoryKindRunStarted)
+	s.Contains(kinds, ext.HistoryKindRunTerminated)
+
+	runInfo, _, err := s.stateStore.GetRunByWFID(ctx, wfID)
+	s.Require().NoError(err)
+	s.Equal(ext.RunStatusTerminated, runInfo.Status)
+}
+
+// TestTerminateRun_AlreadyTerminal verifies that terminating a terminal run returns an error.
+func (s *TerminalCleanupSuite) TestTerminateRun_AlreadyTerminal() {
+	ctx := context.Background()
+	wfID := ext.NewWFID()
+	runID := ext.NewRunID()
+	wfType := ext.NewWFType("test-workflow")
+
+	s.startRun(wfID, runID, wfType)
+	s.waitForRunStateKind(ctx, wfID, runID, ext.RunStateStep)
+
+	// Fail the run first to put it in a terminal state.
+	runInfo, _, err := s.stateStore.GetRunByWFID(ctx, wfID)
+	s.Require().NoError(err)
+	failDirective := ext.Directive{
+		ID:        ext.NewDirectiveID(),
+		Kind:      ext.DirectiveKindFail,
+		Timestamp: time.Now().UTC(),
+		RunInfo:   runInfo,
+		Msg: &ext.Fail{
+			Error: ext.ErrorDetails{
+				Type:    "TestFailure",
+				Message: "forced failure",
+			},
+		},
+	}
+	s.Require().NoError(s.stateStore.PublishDirective(ctx, failDirective))
+	s.waitForRunStateKind(ctx, wfID, runID, ext.RunStateFail)
+
+	// Now attempt terminate — should return an error response.
+	terminateCmd := ext.Command{
+		ID:        ext.NewCmdID(),
+		Kind:      ext.CmdKindRunTerminate,
+		Timestamp: time.Now().UTC(),
+		SenderID:  "c:test-client",
+		Msg: &ext.TerminateCmd{
+			WFID:   wfID,
+			Reason: "too late",
+		},
+	}
+	data, err := msgpack.Marshal(&terminateCmd)
+	s.Require().NoError(err)
+	resp, err := s.nc.Request(natsreg.Manifest.APISubject(wfID), data, 3*time.Second)
+	s.Require().NoError(err)
+
+	// The response should contain an error.
+	var apiResp map[string]any
+	s.Require().NoError(msgpack.Unmarshal(resp.Data, &apiResp))
+	_, hasError := apiResp["error"]
+	s.True(hasError, "expected error field in response for terminal run terminate attempt")
 }
 
 func collectHistoryKinds(history []*ext.HistoryEvent) []ext.HistoryKind {

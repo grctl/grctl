@@ -187,6 +187,28 @@ func stepSnapshotWithWorker(activeDirectiveID ext.DirectiveID, workerID ext.Work
 	return sn
 }
 
+// waitSnapshot is a run currently blocked in a wait state (e.g., waiting for an event).
+func waitSnapshot() model.StateSnapshot {
+	entered := time.Now().UTC()
+	return model.StateSnapshot{
+		RunState: ext.RunState{
+			WFID:      testWFID,
+			RunID:     testRunID,
+			Kind:      ext.RunStateWait,
+			EnteredAt: entered,
+			StartedAt: &entered,
+		},
+	}
+}
+
+// stepSnapshotWithPendingCancel is like stepSnapshot but with a PendingCancel set —
+// simulating a run where a cancel directive arrived while a step was in progress.
+func stepSnapshotWithPendingCancel(activeDirectiveID ext.DirectiveID, cancelDirective ext.Directive) model.StateSnapshot {
+	sn := stepSnapshot(activeDirectiveID)
+	sn.RunState.PendingCancel = &cancelDirective
+	return sn
+}
+
 // recordSet is the assertion surface over the records plan emitted for one directive.
 type recordSet struct {
 	t       *testing.T
@@ -309,6 +331,25 @@ func (rs recordSet) requireWorkerTerminateRun() ext.WorkerTerminateRunPayload {
 	var payload ext.WorkerTerminateRunPayload
 	require.NoError(rs.t, msgpack.Unmarshal(task.Payload, &payload))
 	return payload
+}
+
+// requirePendingCancel asserts the last run-state record has PendingCancel set.
+func (rs recordSet) requirePendingCancel() *ext.Directive {
+	rs.t.Helper()
+	state := rs.finalRunState()
+	require.NotNil(rs.t, state.PendingCancel, "expected PendingCancel to be set on run state")
+	return state.PendingCancel
+}
+
+// requireNoTerminalRunState asserts that no run-state record in the batch is a terminal state.
+func (rs recordSet) requireNoTerminalRunState() {
+	rs.t.Helper()
+	for _, r := range rs.records {
+		if rec, ok := r.(model.RunStateRecord); ok {
+			require.False(rs.t, rec.State.IsTerminal(),
+				"expected no terminal run state but got %q", rec.State.Kind)
+		}
+	}
 }
 
 func (rs recordSet) requireRunError() ext.ErrorDetails {

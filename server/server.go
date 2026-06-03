@@ -85,7 +85,7 @@ func NewServer(
 	// srv is created early so it can be passed as WorkerCommandPublisher to bgTaskHandler.
 	srv := &Server{nc: nc, senderID: senderID}
 
-	runManager := run.NewManager(stateStore)
+	runManager := run.NewManager(stateStore, uint32(cfg.Defaults.StepTimeout.Milliseconds()), uint32(cfg.Defaults.WaitTimeout.Milliseconds()))
 	timerMsgHandler := run.NewTimerMsgHandler(stateStore, maxTimerDeliveries)
 	bgTaskHandler := run.NewBgTaskHandler(timerStream, stateStore, stateStore, stateStore, srv, maxBgTaskDeliveries)
 

@@ -14,7 +14,6 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/synadia-io/orbit.go/jetstreamext"
 	"github.com/vmihailenco/msgpack/v5"
-	"golang.org/x/sync/errgroup"
 )
 
 var ErrRunStateNotFound = errors.New("run state not found")
@@ -141,47 +140,22 @@ func (s *JSStateStore) ListRuns(ctx context.Context) ([]*ext.RunInfo, error) {
 
 func (s *JSStateStore) GetStateSnapshot(ctx context.Context, wfID ext.WFID, runID ext.RunID) (models.StateSnapshot, error) {
 	var snapshot models.StateSnapshot
-	// gctx is derived from ctx for the errgroup goroutines only.
-	// It is cancelled when Wait returns, so we keep the original ctx for subsequent calls.
-	g, gctx := errgroup.WithContext(ctx)
 
-	g.Go(func() error {
-		state, err := s.GetRunState(gctx, wfID, runID)
-		if err != nil {
-			if errors.Is(err, ErrRunStateNotFound) {
-				return nil
-			}
-			return err
-		}
-		snapshot.RunState = state
-		return nil
-	})
-
-	g.Go(func() error {
-		cancel, err := s.GetCancelDirective(gctx, wfID)
-		if err != nil {
-			if !errors.Is(err, jetstream.ErrMsgNotFound) {
-				return err
-			}
-			return nil
-		}
-		snapshot.Cancel = cancel
-		return nil
-	})
-
-	if err := g.Wait(); err != nil {
+	state, err := s.GetRunState(ctx, wfID, runID)
+	if err != nil && !errors.Is(err, ErrRunStateNotFound) {
 		return models.StateSnapshot{}, err
 	}
+	if err == nil {
+		snapshot.RunState = state
+	}
 
-	if snapshot.Cancel.Kind == "" {
-		event, _, err := s.GetNextEvent(ctx, wfID, snapshot.RunState.LastEventSeqID)
-		if err != nil {
-			if !errors.Is(err, jetstreamext.ErrNoMessages) {
-				return models.StateSnapshot{}, err
-			}
-		} else {
-			snapshot.Event = event
+	event, _, err := s.GetNextEvent(ctx, wfID, snapshot.RunState.LastEventSeqID)
+	if err != nil {
+		if !errors.Is(err, jetstreamext.ErrNoMessages) {
+			return models.StateSnapshot{}, err
 		}
+	} else {
+		snapshot.Event = event
 	}
 
 	return snapshot, nil
@@ -311,7 +285,6 @@ func (s *JSStateStore) PurgeRunResidue(ctx context.Context, wfID ext.WFID) error
 	patterns := []string{
 		natsreg.Manifest.DirectivePurgePattern(wfID),
 		natsreg.Manifest.TimerPurgePattern(wfID),
-		natsreg.Manifest.CancelInboxPurgePattern(wfID),
 		natsreg.Manifest.EventInboxPurgePattern(wfID),
 		natsreg.Manifest.WorkerTaskPurgePattern(wfID),
 	}
@@ -321,22 +294,6 @@ func (s *JSStateStore) PurgeRunResidue(ctx context.Context, wfID ext.WFID) error
 		}
 	}
 	return nil
-}
-
-func (s *JSStateStore) GetCancelDirective(ctx context.Context, wfID ext.WFID) (ext.Directive, error) {
-	subject := natsreg.Manifest.CancelInboxSubject(wfID)
-
-	entry, err := s.stream.GetLastMsgForSubject(ctx, subject)
-	if err != nil {
-		return ext.Directive{}, fmt.Errorf("failed to get cancel directive: %w", err)
-	}
-
-	var d ext.Directive
-	if err := msgpack.Unmarshal(entry.Data, &d); err != nil {
-		return ext.Directive{}, fmt.Errorf("failed to unmarshal cancel directive: %w", err)
-	}
-
-	return d, nil
 }
 
 func (s *JSStateStore) PublishDirective(ctx context.Context, d ext.Directive) error {

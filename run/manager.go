@@ -28,12 +28,16 @@ type Recorder interface {
 }
 
 type Manager struct {
-	recorder Recorder
+	recorder             Recorder
+	defaultStepTimeoutMS uint32
+	defaultWaitTimeoutMS uint32
 }
 
-func NewManager(recorder Recorder) *Manager {
+func NewManager(recorder Recorder, defaultStepTimeoutMS uint32, defaultWaitTimeoutMS uint32) *Manager {
 	return &Manager{
-		recorder: recorder,
+		recorder:             recorder,
+		defaultStepTimeoutMS: defaultStepTimeoutMS,
+		defaultWaitTimeoutMS: defaultWaitTimeoutMS,
 	}
 }
 
@@ -58,7 +62,7 @@ func (m *Manager) Handle(ctx context.Context, d ext.Directive, numDelivered uint
 
 	// plan owns the terminal-run guard: a directive for a finished run yields no
 	// records, which commits as a no-op (Processed). See plan().
-	records, err := plan(ctx, d, sn)
+	records, err := plan(ctx, d, sn, m.defaultStepTimeoutMS, m.defaultWaitTimeoutMS)
 	if err != nil {
 		slog.Error("failed to create plan", "error", err)
 		return model.Retryable(RetryDelay)

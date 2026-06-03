@@ -109,8 +109,6 @@ func buildKeyValueLines(event *ext.HistoryEvent) []string {
 		lines = appendKV(lines, "Duration", formatDuration(time.Duration(msg.DurationMS)*time.Millisecond))
 	case *ext.RunFailed:
 		lines = appendKV(lines, "Duration", formatDuration(time.Duration(msg.DurationMS)*time.Millisecond))
-	case *ext.RunCancelScheduled:
-		lines = appendKV(lines, "Run ID", event.RunID.String())
 	case *ext.RunCancelReceived:
 		lines = appendKV(lines, "Run ID", event.RunID.String())
 	case *ext.RunCancelled:

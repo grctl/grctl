@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func Wait(d ext.Directive, sn model.StateSnapshot) ([]model.Record, error) {
+func Wait(d ext.Directive, sn model.StateSnapshot, defaultWaitTimeoutMS uint32) ([]model.Record, error) {
 	records := make([]model.Record, 0, 5)
 	msg, ok := d.Msg.(*ext.Wait)
 	if !ok || msg == nil {
@@ -36,8 +36,12 @@ func Wait(d ext.Directive, sn model.StateSnapshot) ([]model.Record, error) {
 	runState.EnteredAt = time.Now().UTC()
 	runState.ActiveDirectiveID = ""
 
-	if msg.Timeout > 0 && msg.TimeoutStepName != "" {
-		timer, err := createWaitTimeoutTimer(d, msg)
+	timeout := msg.Timeout
+	if timeout == 0 && msg.TimeoutStepName != "" {
+		timeout = defaultWaitTimeoutMS
+	}
+	if timeout > 0 && msg.TimeoutStepName != "" {
+		timer, err := createWaitTimeoutTimer(d, timeout, msg.TimeoutStepName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create wait timeout timer: %w", err)
 		}
@@ -102,7 +106,7 @@ func EventReceived(d ext.Directive, sn model.StateSnapshot) ([]model.Record, err
 // Creates the records for an even directive.
 // A bit of duplication with StepStart, but separated for clarity.
 // We should merge it when we have clear RunInfo update logic.
-func EventStart(d ext.Directive, currentState ext.RunState) ([]model.Record, error) {
+func EventStart(d ext.Directive, currentState ext.RunState, defaultTimeoutMS uint32) ([]model.Record, error) {
 	records := make([]model.Record, 0, 4)
 
 	d.RunInfo.HistorySeqID = currentState.SeqID
@@ -114,7 +118,7 @@ func EventStart(d ext.Directive, currentState ext.RunState) ([]model.Record, err
 
 	stepName := msg.StepName()
 
-	timer, err := StepTimeoutTimer(d)
+	timer, err := StepTimeoutTimer(d, defaultTimeoutMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create step timeout timer: %w", err)
 	}
@@ -167,7 +171,7 @@ func EventStart(d ext.Directive, currentState ext.RunState) ([]model.Record, err
 
 }
 
-func WaitTimeout(d ext.Directive, currentState ext.RunState) ([]model.Record, error) {
+func WaitTimeout(d ext.Directive, currentState ext.RunState, defaultTimeoutMS uint32) ([]model.Record, error) {
 	msg, ok := d.Msg.(*ext.WaitTimeout)
 	if !ok {
 		return nil, fmt.Errorf("can not create wait timeout records: expected WaitTimeout but got %T", d.Msg)
@@ -192,7 +196,7 @@ func WaitTimeout(d ext.Directive, currentState ext.RunState) ([]model.Record, er
 		RunInfo:   d.RunInfo,
 		Msg:       &ext.Step{Name: msg.TimeoutStepName},
 	}
-	steprecords, err := StepStart(stepD, currentState)
+	steprecords, err := StepStart(stepD, currentState, defaultTimeoutMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start timeout step %q: %w", msg.TimeoutStepName, err)
 	}
@@ -201,15 +205,15 @@ func WaitTimeout(d ext.Directive, currentState ext.RunState) ([]model.Record, er
 	return records, nil
 }
 
-func createWaitTimeoutTimer(d ext.Directive, msg *ext.Wait) (ext.Timer, error) {
+func createWaitTimeoutTimer(d ext.Directive, timeout uint32, timeoutStepName string) (ext.Timer, error) {
 	now := time.Now().UTC()
 	return ext.Timer{
 		ID:        ext.DeriveTimerID(d.ID, ext.TimerKindWaitTimeout),
 		Kind:      ext.TimerKindWaitTimeout,
 		WFID:      d.RunInfo.WFID,
 		CreatedAt: now,
-		ExpiresAt: now.Add(time.Duration(msg.Timeout) * time.Millisecond),
-		StepName:  msg.TimeoutStepName,
+		ExpiresAt: now.Add(time.Duration(timeout) * time.Millisecond),
+		StepName:  timeoutStepName,
 		Directive: d,
 	}, nil
 }

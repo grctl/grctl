@@ -102,6 +102,29 @@ func RunCancelReceived(d ext.Directive) (ext.HistoryEvent, error) {
 	return e, nil
 }
 
+func RunTerminated(d ext.Directive) (ext.HistoryEvent, error) {
+	dmsg, ok := d.Msg.(*ext.Terminate)
+	if !ok {
+		return ext.HistoryEvent{}, fmt.Errorf("expected Terminate directive but got %T", d.Msg)
+	}
+
+	var durationMS int64
+	if d.RunInfo.StartedAt != nil {
+		durationMS = d.Timestamp.Sub(*d.RunInfo.StartedAt).Milliseconds()
+	}
+
+	return ext.HistoryEvent{
+		WFID:      d.RunInfo.WFID,
+		RunID:     d.RunInfo.ID,
+		Timestamp: d.Timestamp,
+		Kind:      ext.HistoryKindRunTerminated,
+		Msg: ext.RunTerminated{
+			Reason:     dmsg.Reason,
+			DurationMS: durationMS,
+		},
+	}, nil
+}
+
 func RunCancelled(d ext.Directive) (ext.HistoryEvent, error) {
 	dmsg, ok := d.Msg.(*ext.Cancel)
 	if !ok {

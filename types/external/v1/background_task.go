@@ -13,6 +13,7 @@ const (
 	BackgroundTaskKindDeleteInboxEvent     BackgroundTaskKind = "delete_inbox_event"
 	BackgroundTaskKindPurgeRunResidue      BackgroundTaskKind = "purge_run_residue"
 	BackgroundTaskKindNotifyParentComplete BackgroundTaskKind = "notify_parent_complete"
+	BackgroundTaskKindWorkerTerminateRun   BackgroundTaskKind = "worker_terminate_run"
 )
 
 type BackgroundTask struct {
@@ -95,6 +96,27 @@ func NewPurgeRunResidueTask(parentID DirectiveID, wfID WFID) (BackgroundTask, er
 	return BackgroundTask{
 		Kind:            BackgroundTaskKindPurgeRunResidue,
 		DeduplicationID: DeriveBgTaskID(parentID, BackgroundTaskKindPurgeRunResidue),
+		Payload:         payload,
+	}, nil
+}
+
+// WorkerTerminateRunPayload is the msgpack-encoded Payload for BackgroundTaskKindWorkerTerminateRun.
+type WorkerTerminateRunPayload struct {
+	WorkerID WorkerID `msgpack:"worker_id"`
+	RunID    RunID    `msgpack:"run_id"`
+}
+
+// NewWorkerTerminateRunTask constructs a BackgroundTask that sends a terminate command to a
+// specific worker to abort an in-flight step. The command is best-effort: if the worker
+// is already gone, the handler logs and discards the task.
+func NewWorkerTerminateRunTask(parentID DirectiveID, workerID WorkerID, runID RunID) (BackgroundTask, error) {
+	payload, err := msgpack.Marshal(&WorkerTerminateRunPayload{WorkerID: workerID, RunID: runID})
+	if err != nil {
+		return BackgroundTask{}, fmt.Errorf("failed to marshal worker terminate run payload: %w", err)
+	}
+	return BackgroundTask{
+		Kind:            BackgroundTaskKindWorkerTerminateRun,
+		DeduplicationID: DeriveBgTaskID(parentID, BackgroundTaskKindWorkerTerminateRun),
 		Payload:         payload,
 	}, nil
 }

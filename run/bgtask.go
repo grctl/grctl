@@ -2,11 +2,11 @@ package run
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
-	intr "grctl/server/types"
 	model "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 
@@ -33,11 +33,18 @@ type ParentNotifier interface {
 	PublishDirective(ctx context.Context, d ext.Directive) error
 }
 
+// WorkerCommandPublisher sends a command to a specific worker over request-reply.
+// Returns model.ErrWorkerUnreachable if the worker is gone or does not respond.
+type WorkerCommandPublisher interface {
+	PublishWorkerCommand(workerID string, cmd ext.Command) error
+}
+
 type BgTaskHandler struct {
 	timers         TimerCanceler
 	inbox          InboxEventDeleter
 	residuePurger  RunResiduePurger
 	parentNotifier ParentNotifier
+	workerCmds     WorkerCommandPublisher
 	maxDeliveries  uint64
 }
 
@@ -46,6 +53,7 @@ func NewBgTaskHandler(
 	inbox InboxEventDeleter,
 	residuePurger RunResiduePurger,
 	parentNotifier ParentNotifier,
+	workerCmds WorkerCommandPublisher,
 	maxDeliveries uint64,
 ) *BgTaskHandler {
 	return &BgTaskHandler{
@@ -53,11 +61,12 @@ func NewBgTaskHandler(
 		inbox:          inbox,
 		residuePurger:  residuePurger,
 		parentNotifier: parentNotifier,
+		workerCmds:     workerCmds,
 		maxDeliveries:  maxDeliveries,
 	}
 }
 
-func (h *BgTaskHandler) Handle(ctx context.Context, task ext.BackgroundTask, numDelivered uint64) intr.HandleResult {
+func (h *BgTaskHandler) Handle(ctx context.Context, task ext.BackgroundTask, numDelivered uint64) model.HandleResult {
 	if numDelivered > h.maxDeliveries {
 		slog.Warn("background task exceeded max deliveries, discarding",
 			"kind", task.Kind,
@@ -77,6 +86,8 @@ func (h *BgTaskHandler) Handle(ctx context.Context, task ext.BackgroundTask, num
 		return h.handlePurgeRunResidue(ctx, task)
 	case ext.BackgroundTaskKindNotifyParentComplete:
 		return h.handleNotifyParentComplete(ctx, task)
+	case ext.BackgroundTaskKindWorkerTerminateRun:
+		return h.handleWorkerTerminateRun(ctx, task)
 	default:
 		slog.Warn("unknown background task kind, discarding", "kind", task.Kind)
 		return model.Processed()
@@ -222,6 +233,46 @@ func (h *BgTaskHandler) handleNotifyParentComplete(ctx context.Context, task ext
 		"childWFID", payload.ChildWFID,
 		"stepName", payload.StepName,
 		"status", payload.Status,
+	)
+	return model.Processed()
+}
+
+func (h *BgTaskHandler) handleWorkerTerminateRun(_ context.Context, task ext.BackgroundTask) model.HandleResult {
+	var payload ext.WorkerTerminateRunPayload
+	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
+		slog.Error("failed to unmarshal worker terminate run payload, discarding",
+			"deduplicationID", task.DeduplicationID,
+			"error", err,
+		)
+		return model.Processed()
+	}
+
+	cmd := ext.Command{
+		ID:        ext.NewCmdID(),
+		Kind:      ext.CmdKindWorkerTerminateRun,
+		Timestamp: time.Now().UTC(),
+		Msg:       &ext.WorkerTerminateRunCmd{RunID: payload.RunID},
+	}
+
+	if err := h.workerCmds.PublishWorkerCommand(string(payload.WorkerID), cmd); err != nil {
+		if errors.Is(err, model.ErrWorkerUnreachable) {
+			slog.Debug("worker unreachable for terminate signal, it already stopped",
+				"workerID", payload.WorkerID,
+				"runID", payload.RunID,
+			)
+			return model.Processed()
+		}
+		slog.Warn("failed to send terminate to worker, will retry",
+			"workerID", payload.WorkerID,
+			"runID", payload.RunID,
+			"error", err,
+		)
+		return model.Retryable(RetryDelay)
+	}
+
+	slog.Debug("sent terminate signal to worker",
+		"workerID", payload.WorkerID,
+		"runID", payload.RunID,
 	)
 	return model.Processed()
 }

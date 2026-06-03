@@ -77,9 +77,17 @@ func NewServer(
 		return nil, fmt.Errorf("failed to initialize timer stream: %w", err)
 	}
 
+	senderID, err := deriveServerID(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("derive server ID: %w", err)
+	}
+
+	// srv is created early so it can be passed as WorkerCommandPublisher to bgTaskHandler.
+	srv := &Server{nc: nc, senderID: senderID}
+
 	runManager := run.NewManager(stateStore)
 	timerMsgHandler := run.NewTimerMsgHandler(stateStore, maxTimerDeliveries)
-	bgTaskHandler := run.NewBgTaskHandler(timerStream, stateStore, stateStore, stateStore, maxBgTaskDeliveries)
+	bgTaskHandler := run.NewBgTaskHandler(timerStream, stateStore, stateStore, stateStore, srv, maxBgTaskDeliveries)
 
 	bgTaskQueue, err := ingress.NewBgTaskQueue(ctx, stateStream)
 	if err != nil {
@@ -91,22 +99,15 @@ func NewServer(
 	apiHandler := api.NewAPIHandler(runAPI)
 	apiSubscriber := api.NewAPISubscriber(nc, apiHandler)
 
-	senderID, err := deriveServerID(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("derive server ID: %w", err)
-	}
+	srv.apiSubscriber = apiSubscriber
+	srv.directiveQueue = directiveQueue
+	srv.runManager = runManager
+	srv.timerStream = timerStream
+	srv.timerMsgHandler = timerMsgHandler
+	srv.bgTaskQueue = bgTaskQueue
+	srv.bgTaskHandler = bgTaskHandler
 
-	return &Server{
-		nc:              nc,
-		senderID:        senderID,
-		apiSubscriber:   apiSubscriber,
-		directiveQueue:  directiveQueue,
-		runManager:      runManager,
-		timerStream:     timerStream,
-		timerMsgHandler: timerMsgHandler,
-		bgTaskQueue:     bgTaskQueue,
-		bgTaskHandler:   bgTaskHandler,
-	}, nil
+	return srv, nil
 }
 
 func (s *Server) Start() error {

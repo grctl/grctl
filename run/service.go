@@ -129,6 +129,37 @@ func (m *Service) DescribeRun(ctx context.Context, wfID ext.WFID) (ext.RunInfo, 
 	return runInfo, nil
 }
 
+func (m *Service) Terminate(ctx context.Context, cmd ext.Command) error {
+	msg, ok := cmd.Msg.(*ext.TerminateCmd)
+	if !ok || msg == nil {
+		return fmt.Errorf("expected TerminateCmd message but got %T", cmd.Msg)
+	}
+
+	wfID := msg.WFID
+	runInfo, _, err := m.store.GetRunByWFID(ctx, wfID)
+	if err != nil {
+		return fmt.Errorf("failed to get run info from store: %w", err)
+	}
+	if runInfo.Status.IsTerminal() {
+		return model.ErrRunTerminal
+	}
+
+	directive := ext.Directive{
+		ID:        ext.NewDirectiveID(),
+		Kind:      ext.DirectiveKindTerminate,
+		Timestamp: time.Now().UTC(),
+		RunInfo:   runInfo,
+		Msg:       &ext.Terminate{Reason: msg.Reason},
+	}
+
+	if err := m.store.PublishDirective(ctx, directive); err != nil {
+		return fmt.Errorf("failed to enqueue terminate directive: %w", err)
+	}
+
+	slog.Debug("terminate directive enqueued", "workflowID", wfID, "reason", msg.Reason)
+	return nil
+}
+
 func (m *Service) Cancel(ctx context.Context, cmd ext.Command) error {
 	msg, ok := cmd.Msg.(*ext.CancelCmd)
 	if !ok || msg == nil {

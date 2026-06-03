@@ -204,7 +204,7 @@ func CancelRun(d ext.Directive, currentState ext.RunState) ([]model.Record, erro
 		ExpectedSeq: currentState.SeqID,
 	})
 
-	cancelErr := &ext.ErrorDetails{Type: "Cancelled", Message: "child workflow was cancelled"}
+	cancelErr := &ext.ErrorDetails{Type: "Cancelled", Message: "workflow was cancelled"}
 	if msg, ok := d.Msg.(*ext.Cancel); ok && msg.Reason != "" {
 		cancelErr.Message = msg.Reason
 	}

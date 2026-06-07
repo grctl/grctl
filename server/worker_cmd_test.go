@@ -29,8 +29,7 @@ func newTestServer(t *testing.T) (*server.Server, *nats.Conn) {
 
 	cfg := &config.Config{
 		Defaults: config.DefaultsConfig{
-			WorkerResponseTimeout: 5 * time.Second,
-			StepTimeout:           5 * time.Minute,
+			StepTimeout: 5 * time.Minute,
 		},
 	}
 	srv, err := server.NewServer(context.Background(), nc, js, cfg, &server.Options{InMemory: true})

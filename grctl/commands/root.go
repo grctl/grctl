@@ -18,6 +18,12 @@ var (
 	date    = "unknown"
 )
 
+func SetVersion(v, c, d string) {
+	version = v
+	commit = c
+	date = d
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "grctl",
 	Short: "grctl - Workflow Execution Engine",

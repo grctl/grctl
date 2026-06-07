@@ -65,9 +65,8 @@ func (n NATSConfig) ResolveStoreDir() NATSConfig {
 }
 
 type DefaultsConfig struct {
-	WorkerResponseTimeout time.Duration `koanf:"worker_response_timeout"`
-	StepTimeout           time.Duration `koanf:"step_timeout"`
-	WaitTimeout           time.Duration `koanf:"wait_timeout"`
+	StepTimeout time.Duration `koanf:"step_timeout"`
+	WaitTimeout time.Duration `koanf:"wait_timeout"`
 }
 
 func Load(path string) (Config, error) {
@@ -138,10 +137,7 @@ func (c Config) Validate() error {
 		return fmt.Errorf("nats.storage must be \"memory\" or \"file\"")
 	}
 
-	if c.Defaults.WorkerResponseTimeout <= 0 {
-		return fmt.Errorf("defaults.worker_ack_timeout must be positive")
-	}
-	if c.Defaults.StepTimeout <= 0 {
+if c.Defaults.StepTimeout <= 0 {
 		return fmt.Errorf("defaults.step_timeout must be positive")
 	}
 	if c.Defaults.WaitTimeout <= 0 {

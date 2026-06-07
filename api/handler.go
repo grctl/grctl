@@ -10,8 +10,6 @@ import (
 	"grctl/server/types/external/v1"
 )
 
-var log = slog.With("component", "api")
-
 var (
 	ErrUnknownAPICommand  = errors.New("unknown API command")
 	ErrInvalidMessageType = errors.New("message type does not match command kind")

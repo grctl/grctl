@@ -17,8 +17,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var log = slog.With("component", "ingress")
-
 const processingTimeout = 25 * time.Second
 
 type DirectiveHandler func(ctx context.Context, d ext.Directive, numDelivered uint64) intr.HandleResult

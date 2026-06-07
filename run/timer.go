@@ -38,7 +38,7 @@ func (h *TimerMsgHandler) Handle(ctx context.Context, timer ext.Timer, numDelive
 	}
 
 	// Timer has neither Directive nor Command — unrecoverable payload, no workflow to fail.
-		slog.Error("timer fired with no payload, cannot identify workflow")
+	slog.Error("timer fired with no payload, cannot identify workflow")
 	return intr.Processed()
 }
 

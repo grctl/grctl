@@ -16,8 +16,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var log = slog.With("component", "jsstore")
-
 var ErrRunStateNotFound = errors.New("run state not found")
 
 type JSStateStore struct {

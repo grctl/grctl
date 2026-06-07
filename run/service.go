@@ -12,8 +12,6 @@ import (
 	ext "grctl/server/types/external/v1"
 )
 
-
-
 type RunStore interface {
 	CreateRunInfo(ctx context.Context, info ext.RunInfo) error
 	GetRunByWFID(ctx context.Context, wfID ext.WFID) (ext.RunInfo, uint64, error)

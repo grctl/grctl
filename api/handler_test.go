@@ -43,8 +43,7 @@ func (s *HandleStartCmdTestSuite) SetupTest() {
 
 	cfg := &config.Config{
 		Defaults: config.DefaultsConfig{
-			WorkerResponseTimeout: 5 * time.Second,
-			StepTimeout:           5 * time.Minute,
+			StepTimeout: 5 * time.Minute,
 		},
 	}
 

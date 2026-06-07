@@ -35,7 +35,6 @@ func (s *ConfigSuite) TestLoadConfigFileNotFound() {
 	s.Equal("file", cfg.NATS.Storage)
 	s.Equal(filepath.Join(s.home, ".grctl/data"), cfg.NATS.StoreDir)
 	s.Equal("always", cfg.NATS.SyncInterval)
-	s.Equal(5*time.Second, cfg.Defaults.WorkerResponseTimeout)
 	s.Equal(5*time.Minute, cfg.Defaults.StepTimeout)
 }
 
@@ -48,7 +47,6 @@ func (s *ConfigSuite) TestLoadDefaults() {
 	s.Equal("file", cfg.NATS.Storage)
 	s.Equal(filepath.Join(s.home, ".grctl/data"), cfg.NATS.StoreDir)
 	s.Equal("always", cfg.NATS.SyncInterval)
-	s.Equal(5*time.Second, cfg.Defaults.WorkerResponseTimeout)
 	s.Equal(5*time.Minute, cfg.Defaults.StepTimeout)
 }
 
@@ -78,7 +76,6 @@ func (s *ConfigSuite) TestLoadConfigFile() {
   url: "nats://127.0.0.1:4222"
   storage: memory
 defaults:
-  worker_response_timeout: "45s"
   step_timeout: "2m"
 `)
 	tmpDir := s.T().TempDir()
@@ -91,7 +88,6 @@ defaults:
 	s.Equal(NATSModeExternal, cfg.NATS.Mode)
 	s.Equal("nats://127.0.0.1:4222", cfg.NATS.URL)
 	s.Equal("memory", cfg.NATS.Storage)
-	s.Equal(45*time.Second, cfg.Defaults.WorkerResponseTimeout)
 	s.Equal(2*time.Minute, cfg.Defaults.StepTimeout)
 }
 
@@ -109,14 +105,12 @@ func (s *ConfigSuite) TestPortFromYAML() {
 func (s *ConfigSuite) TestLoadConfigEnvOverrides() {
 	s.T().Setenv("GRCTL_NATS_PORT", "4333")
 	s.T().Setenv("GRCTL_NATS_CONFIG_FILE", "/tmp/custom-nats.conf")
-	s.T().Setenv("GRCTL_DEFAULTS_WORKER_RESPONSE_TIMEOUT", "7s")
 
 	cfg, err := Load("/nonexistent/path/grctl.yaml")
 	s.Require().NoError(err)
 
 	s.Equal(4333, cfg.NATS.Port)
 	s.Equal("/tmp/custom-nats.conf", cfg.NATS.ConfigFile)
-	s.Equal(7*time.Second, cfg.Defaults.WorkerResponseTimeout)
 }
 
 func (s *ConfigSuite) TestLoadConfigEmbeddedModeInvalidPort() {

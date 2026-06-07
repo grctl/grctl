@@ -18,9 +18,8 @@ func TestApplyStartConfigOverrides_PortFlag(t *testing.T) {
 	cfg := config.Config{
 		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225, Storage: "file", StoreDir: "/tmp/data", SyncInterval: "always"},
 		Defaults: config.DefaultsConfig{
-			WorkerResponseTimeout: 1,
-			StepTimeout:           1,
-			WaitTimeout:           1,
+			StepTimeout: 1,
+			WaitTimeout: 1,
 		},
 	}
 
@@ -43,9 +42,8 @@ func TestApplyStartConfigOverrides_InvalidEmbeddedPort(t *testing.T) {
 	cfg := config.Config{
 		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225, Storage: "file", StoreDir: "/tmp/data", SyncInterval: "always"},
 		Defaults: config.DefaultsConfig{
-			WorkerResponseTimeout: 1,
-			StepTimeout:           1,
-			WaitTimeout:           1,
+			StepTimeout: 1,
+			WaitTimeout: 1,
 		},
 	}
 
@@ -71,9 +69,8 @@ func TestApplyStartConfigOverrides_ExternalModePortNotRequired(t *testing.T) {
 			SyncInterval: "always",
 		},
 		Defaults: config.DefaultsConfig{
-			WorkerResponseTimeout: 1,
-			StepTimeout:           1,
-			WaitTimeout:           1,
+			StepTimeout: 1,
+			WaitTimeout: 1,
 		},
 	}
 
@@ -96,9 +93,8 @@ func TestApplyStartConfigOverrides_InMemoryFlag(t *testing.T) {
 	cfg := config.Config{
 		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225, Storage: "file", StoreDir: "/tmp/data", SyncInterval: "always"},
 		Defaults: config.DefaultsConfig{
-			WorkerResponseTimeout: 1,
-			StepTimeout:           1,
-			WaitTimeout:           1,
+			StepTimeout: 1,
+			WaitTimeout: 1,
 		},
 	}
 
@@ -120,9 +116,8 @@ func TestApplyStartConfigOverrides_DataDirFlag(t *testing.T) {
 	cfg := config.Config{
 		NATS: config.NATSConfig{Mode: config.NATSModeEmbedded, Port: 4225, Storage: "file", StoreDir: "/original"},
 		Defaults: config.DefaultsConfig{
-			WorkerResponseTimeout: 1,
-			StepTimeout:           1,
-			WaitTimeout:           1,
+			StepTimeout: 1,
+			WaitTimeout: 1,
 		},
 	}
 

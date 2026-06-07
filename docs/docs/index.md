@@ -74,7 +74,7 @@ async def order_start(ctx: Context, order_id: str, amount: float) -> Directive:
     ctx.store.put("amount", validated_amount)
 
     # Start a child workflow and wait for it to send back an event
-    payment_handle = await ctx.start(
+    payment_handle = await ctx.start_child(
         payment_wf.workflow_type,
         workflow_id=f"payment-{validated_id}",
         workflow_input={"amount": validated_amount},

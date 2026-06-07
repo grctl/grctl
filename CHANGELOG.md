@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/grctl/grctl/compare/v0.3.2...v0.4.0) (2026-06-07)
+
+
+### Features
+
+* child wf callback ([#44](https://github.com/grctl/grctl/issues/44)) ([34e7d22](https://github.com/grctl/grctl/commit/34e7d22a2a2c1d4844753e0a115f89b7f98ca2ea))
+* execution terminate ([#47](https://github.com/grctl/grctl/issues/47)) ([09b6c00](https://github.com/grctl/grctl/commit/09b6c00a0b817779d4ac3c494ab8e00baa77dd95))
+* logging ([#51](https://github.com/grctl/grctl/issues/51)) ([6ecd351](https://github.com/grctl/grctl/commit/6ecd3510654f9a73e0ca8fde6adfef55e96a4c58))
+* terminate command ([#48](https://github.com/grctl/grctl/issues/48)) ([2a549b7](https://github.com/grctl/grctl/commit/2a549b7039ea86feb48077ab2a39e465591e81ed))
+* worker registery ([#46](https://github.com/grctl/grctl/issues/46)) ([c2755b5](https://github.com/grctl/grctl/commit/c2755b565822735af9afefefe663f5b259c1ca6d))
+
+
+### Bug Fixes
+
+* remove worker_response_timeout ([#52](https://github.com/grctl/grctl/issues/52)) ([469bf2f](https://github.com/grctl/grctl/commit/469bf2fc1c04a29e32b8803f37a4fd42476c2ce4))
+* workflow cancel ([#49](https://github.com/grctl/grctl/issues/49)) ([d4337d2](https://github.com/grctl/grctl/commit/d4337d24411a2fb2e03f9878854cda9b4c60d402))
+* workflow cancelled error message ([#50](https://github.com/grctl/grctl/issues/50)) ([440c8ca](https://github.com/grctl/grctl/commit/440c8cad10d37dad8b3b6e1a264a4668f4d7239b))
+
 ## [0.3.2](https://github.com/grctl/grctl/compare/v0.3.1...v0.3.2) (2026-05-29)
 
 

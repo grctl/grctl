@@ -171,7 +171,7 @@ func planWakeFromInbox(ctx context.Context, sn model.StateSnapshot, defaultTimeo
 // Non orchestrated directive transition records
 func planTransition(_ context.Context, d ext.Directive, sn model.StateSnapshot, defaultTimeoutMS uint32, defaultWaitTimeoutMS uint32) ([]model.Record, error) {
 	currentState := sn.RunState
-	slog.Debug(fmt.Sprintf("Creating records for directive %s", d.Kind))
+	slog.Debug("creating records for directive", "kind", d.Kind)
 
 	switch d.Kind {
 	case ext.DirectiveKindStep:

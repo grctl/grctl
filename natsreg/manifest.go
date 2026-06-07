@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 	ext "grctl/server/types/external/v1"
-	"log"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -53,12 +52,13 @@ type NATSManifest struct {
 // Manifest is the singleton instance of NATSManifest, initialized at startup
 var Manifest *NATSManifest
 
-func init() {
+func Init() error {
 	var err error
 	Manifest, err = loadManifest()
 	if err != nil {
-		log.Fatalf("Failed to load NATS manifest: %v", err)
+		return fmt.Errorf("load nats manifest: %w", err)
 	}
+	return nil
 }
 
 // loadManifest reads and parses the embedded nats_manifest.yaml file

@@ -15,6 +15,7 @@ func Wait(d ext.Directive, sn model.StateSnapshot, defaultWaitTimeoutMS uint32) 
 	if !ok || msg == nil {
 		return nil, fmt.Errorf("can not create wait state update: expected Wait but got %T", d.Msg)
 	}
+	slog.Debug("Wait directive received", "timeout_ms", msg.Timeout, "timeout_step_name", msg.TimeoutStepName)
 
 	currentState := sn.RunState
 
@@ -37,17 +38,15 @@ func Wait(d ext.Directive, sn model.StateSnapshot, defaultWaitTimeoutMS uint32) 
 	runState.ActiveDirectiveID = ""
 
 	timeout := msg.Timeout
-	if timeout == 0 && msg.TimeoutStepName != "" {
+	if timeout == 0 {
 		timeout = defaultWaitTimeoutMS
 	}
-	if timeout > 0 && msg.TimeoutStepName != "" {
-		timer, err := createWaitTimeoutTimer(d, timeout, msg.TimeoutStepName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create wait timeout timer: %w", err)
-		}
-		records = append(records, model.TimerRecord{Timer: timer})
-		runState.ActiveDirectiveID = d.ID
+	timer, err := createWaitTimeoutTimer(d, timeout, msg.TimeoutStepName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create wait timeout timer: %w", err)
 	}
+	records = append(records, model.TimerRecord{Timer: timer})
+	runState.ActiveDirectiveID = d.ID
 
 	records = append(records, model.RunStateRecord{
 		State:       runState,
@@ -165,13 +164,14 @@ func EventStart(d ext.Directive, currentState ext.RunState, defaultTimeoutMS uin
 	records = append(records, workerTaskDispatch)
 	records = append(records, runStateUpdate)
 
-	slog.Debug("StartStep transition created")
+	slog.Debug("startStep transition created")
 
 	return records, nil
 
 }
 
 func WaitTimeout(d ext.Directive, currentState ext.RunState, defaultTimeoutMS uint32) ([]model.Record, error) {
+	slog.Debug("WaitTimeout triggered")
 	msg, ok := d.Msg.(*ext.WaitTimeout)
 	if !ok {
 		return nil, fmt.Errorf("can not create wait timeout records: expected WaitTimeout but got %T", d.Msg)
@@ -189,18 +189,39 @@ func WaitTimeout(d ext.Directive, currentState ext.RunState, defaultTimeoutMS ui
 	}
 	records = append(records, model.HistoryRecord{History: he})
 
-	stepD := ext.Directive{
-		ID:        ext.DeriveNextDirectiveID(d.ID),
+	if msg.TimeoutStepName != "" {
+		stepD := ext.Directive{
+			ID:        ext.DeriveNextDirectiveID(d.ID),
+			Timestamp: time.Now().UTC(),
+			Kind:      ext.DirectiveKindStep,
+			RunInfo:   d.RunInfo,
+			Msg:       &ext.Step{Name: msg.TimeoutStepName},
+		}
+		steprecords, err := StepStart(stepD, currentState, defaultTimeoutMS)
+		if err != nil {
+			return nil, fmt.Errorf("failed to start timeout step %q: %w", msg.TimeoutStepName, err)
+		}
+		records = append(records, steprecords...)
+		return records, nil
+	}
+
+	failDirective := ext.Directive{
+		ID:        ext.NewDirectiveID(),
 		Timestamp: time.Now().UTC(),
-		Kind:      ext.DirectiveKindStep,
+		Kind:      ext.DirectiveKindFail,
 		RunInfo:   d.RunInfo,
-		Msg:       &ext.Step{Name: msg.TimeoutStepName},
+		Msg: &ext.Fail{
+			Error: ext.ErrorDetails{
+				Type:    "WaitTimeout",
+				Message: "wait timed out without a timeout step",
+			},
+		},
 	}
-	steprecords, err := StepStart(stepD, currentState, defaultTimeoutMS)
+	failRecords, err := FailRun(failDirective, currentState)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start timeout step %q: %w", msg.TimeoutStepName, err)
+		return nil, fmt.Errorf("failed to fail run on wait timeout: %w", err)
 	}
-	records = append(records, steprecords...)
+	records = append(records, failRecords...)
 
 	return records, nil
 }

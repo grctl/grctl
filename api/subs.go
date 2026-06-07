@@ -84,7 +84,7 @@ func (s *APISubscriber) handler(msg *nats.Msg) {
 		return
 	}
 
-	slog.Debug("Received command", "command", c)
+	slog.Debug("received command", "command", c)
 
 	payload, err := s.apiHandler.handleMessage(c)
 	if err != nil {
@@ -103,7 +103,7 @@ func (s *APISubscriber) handler(msg *nats.Msg) {
 		return
 	}
 
-	slog.Debug("Responding to client", "response", res)
+	slog.Debug("responding to client", "response", res)
 	if err := msg.Respond(resBytes); err != nil {
 		slog.Error("failed to send response", "error", err)
 	}

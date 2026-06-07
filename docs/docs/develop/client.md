@@ -172,8 +172,8 @@ Cancellation is a terminal state — the workflow cannot be resumed after it is 
 |---|---|---|---|
 | `type` | `str` | — | The `workflow_type` string of the workflow to run. |
 | `id` | `str` | — | Stable caller-supplied identifier. Used for deduplication. |
-| `input` | `Any \| None` | `None` | Input passed to the workflow's start handler as keyword arguments. |
-| `timeout` | `timedelta \| None` | `None` | Maximum duration before the workflow is failed with `TimeoutError`. |
+| `input` | `Any | None` | `None` | Input passed to the workflow's start handler as keyword arguments. |
+| `timeout` | `timedelta | None` | `None` | Maximum duration before the workflow is failed with `TimeoutError`. |
 
 ### `WorkflowHandle`
 
@@ -188,4 +188,4 @@ Cancellation is a terminal state — the workflow cannot be resumed after it is 
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `servers` | `list[str] \| None` | `None` | NATS server URLs. Defaults to `grctl_NATS_SERVERS` env var or `nats://localhost:4225`. |
+| `servers` | `list[str] | None` | `None` | NATS server URLs. Defaults to `grctl_NATS_SERVERS` env var or `nats://localhost:4225`. |

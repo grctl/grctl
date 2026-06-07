@@ -11,5 +11,8 @@ func defaultConfigMap() map[string]any {
 		"defaults.worker_response_timeout": "5s",
 		"defaults.step_timeout":            "5m",
 		"defaults.wait_timeout":            "1h",
+		"logging.level":                    "info",
+		"logging.format":                   "",
+		"logging.add_source":               false,
 	}
 }

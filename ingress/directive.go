@@ -57,7 +57,7 @@ func (q *directiveQueue) Start(handler DirectiveHandler) error {
 			if errors.Is(err, jetstream.ErrServerShutdown) {
 				return
 			}
-			slog.Error("Directive consumer error", "error", err)
+			slog.Error("directive consumer error", "error", err)
 		}),
 	)
 	if err != nil {
@@ -65,7 +65,7 @@ func (q *directiveQueue) Start(handler DirectiveHandler) error {
 	}
 
 	q.consumeCtx = cons
-	slog.Debug("Directive consumer started")
+	slog.Debug("directive consumer started")
 	return nil
 }
 
@@ -74,7 +74,7 @@ func (q *directiveQueue) Stop() {
 		q.consumeCtx.Stop()
 	}
 	q.wg.Wait()
-	slog.Debug("Directive consumer stopped")
+	slog.Debug("directive consumer stopped")
 }
 
 // processMessage deserializes the NATS message into a Directive,
@@ -85,16 +85,16 @@ func (q *directiveQueue) processMessage(msg jetstream.Msg) {
 
 	var directive ext.Directive
 	if err := msgpack.Unmarshal(msg.Data(), &directive); err != nil {
-		slog.Error("Failed to unmarshal directive, acknowledging to prevent retry", "error", err)
+		slog.Error("failed to unmarshal directive, acknowledging to prevent retry", "error", err)
 		if ackErr := msg.Ack(); ackErr != nil {
-			slog.Error("Failed to Ack malformed message", "error", ackErr)
+			slog.Error("failed to Ack malformed message", "error", ackErr)
 		}
 		return
 	}
 
 	numDelivered := uint64(1)
 	if md, err := msg.Metadata(); err != nil {
-		slog.Warn("Failed to read directive message metadata, defaulting delivery count", "error", err)
+		slog.Warn("failed to read directive message metadata, defaulting delivery count", "error", err)
 	} else {
 		numDelivered = uint64(md.NumDelivered)
 	}
@@ -107,18 +107,18 @@ func (q *directiveQueue) processMessage(msg jetstream.Msg) {
 	switch result.Action {
 	case intr.ActionProcessed:
 		if err := msg.Ack(); err != nil {
-			slog.Error("Failed to Ack message", "error", err)
+			slog.Error("failed to Ack message", "error", err)
 		}
 
 	case intr.ActionRetryable:
 		if err := msg.NakWithDelay(result.RetryDelay); err != nil {
-			slog.Error("Failed to Nak message with delay", "error", err)
+			slog.Error("failed to Nak message with delay", "error", err)
 		}
 
 	default:
-		slog.Error("Unknown handler action, defaulting to Nak", "action", result.Action)
+		slog.Error("unknown handler action, defaulting to Nak", "action", result.Action)
 		if err := msg.Nak(); err != nil {
-			slog.Error("Failed to Nak message", "error", err)
+			slog.Error("failed to Nak message", "error", err)
 		}
 	}
 }

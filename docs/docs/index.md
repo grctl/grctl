@@ -20,55 +20,98 @@ Ground Control replaces that infrastructure. You write the process as a straight
 Ground Control uses a clean, decorator-based API similar to FastAPI, organizing logic into Workflows, Tasks, and Steps.
 
 ```python {filename="process_order.py"}
-order = Workflow(workflow_type="ProcessOrder")
+payment_wf = Workflow(workflow_type="Payment")
+order_wf = Workflow(workflow_type="Order")
 
 
 # A Task is a unit of work within a step, marked with @task.
 # Tasks are recorded in history. If a step re-executes after a crash,
 # completed tasks return their recorded result instead of running again.
 @task
-async def charge_payment(order_id: str, amount: float) -> str:
-    return await payment_gateway.charge(order_id, amount)
+async def validate_order(order_id: str, amount: float) -> tuple[str, float]:
+    await inventory_service.check(order_id)
+    return order_id, amount
 
 @task
-async def reserve_inventory(item_id: str, qty: int) -> None:
-    await inventory_service.reserve(item_id, qty)
+async def process_payment(amount: float) -> str:
+    return await payment_gateway.charge(amount)
 
+@task
+async def create_shipment(order_id: str, tracking_id: str) -> None:
+    await shipping_service.create(order_id, tracking_id)
+
+
+# ── Payment workflow (child) ──────────────────────────────────────────────────
+
+@payment_wf.start()
+async def payment_start(ctx: Context, amount: float) -> Directive:
+    ctx.store.put("amount", amount)
+    return ctx.next.step(payment_process_step)
+
+
+@payment_wf.step()
+async def payment_process_step(ctx: Context) -> Directive:
+    amount = await ctx.store.get("amount", float)
+    transaction_id = await process_payment(amount)
+
+    # Send result back to the parent before completing
+    await ctx.send_to_parent(
+        event_name="payment_completed",
+        payload={"status": "success", "transaction_id": transaction_id},
+    )
+    return ctx.next.complete({"transaction_id": transaction_id})
+
+
+# ── Order workflow (parent) ───────────────────────────────────────────────────
 
 # A Step is a transaction boundary within a workflow.
-# Only one step runs at a time per workflow — no concurrent steps.
-# When a step completes, the engine saves its outcome before moving to the next.
-# Each step handler decides what happens next: transition to another step,
-# wait for an event, complete, or fail.
-@order.start()
-async def start(ctx: Context, order_id: str, item_id: str, qty: int, amount: float) -> Directive:
-    ctx.store.put("order_id", order_id)
+# Only one step runs at a time — when it completes the engine saves its outcome
+# before moving on. Each step handler decides what happens next.
+@order_wf.start()
+async def order_start(ctx: Context, order_id: str, amount: float) -> Directive:
+    validated_id, validated_amount = await validate_order(order_id, amount)
+    ctx.store.put("order_id", validated_id)
+    ctx.store.put("amount", validated_amount)
 
-    # Multiple tasks can run in parallel within a step
-    payment_id, _ = await asyncio.gather(
-        charge_payment(order_id, amount),
-        reserve_inventory(item_id, qty),
+    # Start a child workflow and wait for it to send back an event
+    payment_handle = await ctx.start(
+        payment_wf.workflow_type,
+        workflow_id=f"payment-{validated_id}",
+        workflow_input={"amount": validated_amount},
+        workflow_timeout=timedelta(minutes=5),
     )
-    ctx.store.put("payment_id", payment_id)
 
-    # Move to another step
+    return ctx.next.wait()
+
+
+# Event handlers are registered with @workflow.event() and resume execution
+# when a matching event arrives — either from a child workflow or an external client.
+@order_wf.event(name="payment_completed")
+async def on_payment_completed(ctx: Context, status: str, transaction_id: str) -> Directive:
+    ctx.store.put("transaction_id", transaction_id)
+    ctx.logger.info(f"Payment {status}, tx={transaction_id}")
     return ctx.next.step(ship)
 
 
-@order.step()
-async def ship(ctx: Context) -> Directive:
-    order_id = await ctx.store.get("order_id")
+@order_wf.event()
+async def cancel(ctx: Context, reason: str) -> Directive:
+    order_id = await ctx.store.get("order_id", str)
+    ctx.logger.info(f"Order {order_id} cancelled: {reason}")
+    return ctx.next.complete({"status": "cancelled", "reason": reason})
 
-    # Deterministic functions (ctx.now, ctx.random, ctx.uuid4, ctx.sleep)
-    # wrap non-deterministic operations. Their results are recorded in history
-    # so that during replay, the same values are returned.
+
+@order_wf.step()
+async def ship(ctx: Context) -> Directive:
+    order_id = await ctx.store.get("order_id", str)
+
+    # Deterministic helpers (ctx.now, ctx.uuid4, ctx.sleep, ctx.random) wrap
+    # non-deterministic calls — their results are recorded so replays stay consistent.
     shipped_at = await ctx.now()
     tracking_id = await ctx.uuid4()
 
     await create_shipment(order_id, str(tracking_id))
     ctx.store.put("shipped_at", shipped_at.isoformat())
 
-    # Complete workflow execution with result. The result will be returned to the client
     return ctx.next.complete({"tracking_id": str(tracking_id)})
 ```
 

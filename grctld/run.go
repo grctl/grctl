@@ -11,6 +11,7 @@ import (
 
 	"grctl/server/config"
 	"grctl/server/natsembd"
+	"grctl/server/natsreg"
 	"grctl/server/server"
 
 	natsserver "github.com/nats-io/nats-server/v2/server"
@@ -20,9 +21,12 @@ import (
 )
 
 func runServer(cmd *cobra.Command, args []string) error {
-	setupLogging()
+	initLogging()
 
-	slog.Info("grctl Server starting...", "log_level", getLogLevel().String())
+	if err := natsreg.Init(); err != nil {
+		slog.Error("failed to initialize nats manifest", "error", err)
+		return err
+	}
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -33,8 +37,31 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	reinitLogging(cmd, cfg)
+
+	slog.Info("grctl server starting", "log_level", cfg.Logging.Level)
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	sighupCh := make(chan os.Signal, 1)
+	signal.Notify(sighupCh, syscall.SIGHUP)
+	go func() {
+		for range sighupCh {
+			slog.Info("sighup received, reloading configuration")
+			newCfg, err := config.Load(configPath)
+			if err != nil {
+				slog.Error("failed to reload config on sighup", "error", err)
+				continue
+			}
+			if err := applyStartConfigOverrides(cmd, &newCfg); err != nil {
+				slog.Error("failed to apply config overrides on sighup", "error", err)
+				continue
+			}
+			reinitLogging(cmd, newCfg)
+			slog.Info("log level reloaded on sighup")
+		}
+	}()
 
 	nc, js, ns, err := startNATS(cfg)
 	if err != nil {
@@ -54,7 +81,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	slog.Info("grctl Server started successfully")
+	slog.Info("grctl server started successfully")
 
 	// Wait for shutdown signal and then shut down gracefully
 	<-ctx.Done()
@@ -64,7 +91,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 
 func startNATS(cfg config.Config) (*nats.Conn, jetstream.JetStream, *natsserver.Server, error) {
 	if cfg.NATS.Mode == config.NATSModeEmbedded {
-		slog.Info("Using embedded NATS mode", "effective_port", cfg.NATS.Port)
+		slog.Info("using embedded NATS mode", "effective_port", cfg.NATS.Port)
 		return natsembd.RunEmbeddedServerWithConfig(cfg.NATS)
 	}
 
@@ -99,15 +126,15 @@ func applyStartConfigOverrides(cmd *cobra.Command, cfg *config.Config) error {
 }
 
 func shutdown(s *server.Server, nc *nats.Conn, ns *natsserver.Server) {
-	slog.Info("Shutdown signal received, stopping server...")
+	slog.Info("shutdown signal received, stopping server")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := s.Stop(shutdownCtx); err != nil {
-		slog.Error("Forced shutdown after timeout", "error", err)
+		slog.Error("forced shutdown after timeout", "error", err)
 	} else {
-		slog.Info("Server stopped cleanly")
+		slog.Info("server stopped cleanly")
 	}
 
 	nc.Close()

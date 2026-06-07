@@ -112,6 +112,22 @@ func (r *WorkflowTypeRegistry) GetStartStepTimeout(ctx context.Context, wfType e
 	return entry.StartStepTimeoutMS, nil
 }
 
+// GetEventDef returns the EventDef for the given event name within a workflow
+// type definition. Returns a zero-value EventDef if the event name is not found.
+// Returns ErrWorkflowTypeNotRegistered if the type has never been registered.
+func (r *WorkflowTypeRegistry) GetEventDef(ctx context.Context, wfType ext.WFType, eventName string) (ext.EventDef, error) {
+	entry, err := r.GetType(ctx, wfType)
+	if err != nil {
+		return ext.EventDef{}, err
+	}
+	for _, ed := range entry.Events {
+		if ed.Name == eventName {
+			return ed, nil
+		}
+	}
+	return ext.EventDef{}, nil
+}
+
 // ListTypes returns every registered type. It scans all registry subjects and
 // is intended for operators and debugging, not any hot path.
 func (r *WorkflowTypeRegistry) ListTypes(ctx context.Context) ([]RegistryEntry, error) {

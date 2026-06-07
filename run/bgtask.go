@@ -70,9 +70,8 @@ func (h *BgTaskHandler) Handle(ctx context.Context, task ext.BackgroundTask, num
 	if numDelivered > h.maxDeliveries {
 		slog.Warn("background task exceeded max deliveries, discarding",
 			"kind", task.Kind,
-			"deduplicationID", task.DeduplicationID,
-			"numDelivered", numDelivered,
-			"maxDeliveries", h.maxDeliveries,
+			"num_delivered", numDelivered,
+			"max_deliveries", h.maxDeliveries,
 		)
 		return model.Processed()
 	}
@@ -98,7 +97,6 @@ func (h *BgTaskHandler) handleDeleteTimer(ctx context.Context, task ext.Backgrou
 	var payload ext.DeleteTimerPayload
 	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
 		slog.Error("failed to unmarshal delete timer payload, discarding",
-			"deduplicationID", task.DeduplicationID,
 			"error", err,
 		)
 		return model.Processed()
@@ -106,18 +104,18 @@ func (h *BgTaskHandler) handleDeleteTimer(ctx context.Context, task ext.Backgrou
 
 	if err := h.timers.CancelTimer(ctx, payload.WFID, payload.Kind, payload.TimerID); err != nil {
 		slog.Warn("failed to cancel timer, will retry",
-			"wfID", payload.WFID,
+			"wf_id", payload.WFID,
 			"kind", payload.Kind,
-			"timerID", payload.TimerID,
+			"timer_id", payload.TimerID,
 			"error", err,
 		)
 		return model.Retryable(RetryDelay)
 	}
 
 	slog.Debug("timer deleted by background task",
-		"wfID", payload.WFID,
+		"wf_id", payload.WFID,
 		"kind", payload.Kind,
-		"timerID", payload.TimerID,
+		"timer_id", payload.TimerID,
 	)
 	return model.Processed()
 }
@@ -126,7 +124,7 @@ func (h *BgTaskHandler) handleDeleteInboxEvent(ctx context.Context, task ext.Bac
 	var payload ext.DeleteInboxEventPayload
 	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
 		slog.Error("failed to unmarshal delete inbox event payload, discarding",
-			"deduplicationID", task.DeduplicationID,
+			"deduplication_id", task.DeduplicationID,
 			"error", err,
 		)
 		return model.Processed()
@@ -134,13 +132,13 @@ func (h *BgTaskHandler) handleDeleteInboxEvent(ctx context.Context, task ext.Bac
 
 	if err := h.inbox.DeleteInboxEvent(ctx, payload.SeqID); err != nil {
 		slog.Warn("failed to delete inbox event, will retry",
-			"seqID", payload.SeqID,
+			"seq_id", payload.SeqID,
 			"error", fmt.Sprintf("%v", err),
 		)
 		return model.Retryable(RetryDelay)
 	}
 
-	slog.Debug("inbox event deleted by background task", "seqID", payload.SeqID)
+	slog.Debug("inbox event deleted by background task", "seq_id", payload.SeqID)
 	return model.Processed()
 }
 
@@ -148,7 +146,7 @@ func (h *BgTaskHandler) handlePurgeRunResidue(ctx context.Context, task ext.Back
 	var payload ext.PurgeRunResiduePayload
 	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
 		slog.Error("failed to unmarshal purge run residue payload, discarding",
-			"deduplicationID", task.DeduplicationID,
+			"deduplication_id", task.DeduplicationID,
 			"error", err,
 		)
 		return model.Processed()
@@ -156,13 +154,13 @@ func (h *BgTaskHandler) handlePurgeRunResidue(ctx context.Context, task ext.Back
 
 	if err := h.residuePurger.PurgeRunResidue(ctx, payload.WFID); err != nil {
 		slog.Warn("failed to purge run residue, will retry",
-			"wfID", payload.WFID,
+			"wf_id", payload.WFID,
 			"error", err,
 		)
 		return model.Retryable(RetryDelay)
 	}
 
-	slog.Debug("run residue purged by background task", "wfID", payload.WFID)
+	slog.Debug("run residue purged by background task", "wf_id", payload.WFID)
 	return model.Processed()
 }
 
@@ -170,7 +168,7 @@ func (h *BgTaskHandler) handleNotifyParentComplete(ctx context.Context, task ext
 	var payload ext.NotifyParentCompletePayload
 	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
 		slog.Error("failed to unmarshal notify parent complete payload, discarding",
-			"deduplicationID", task.DeduplicationID,
+			"deduplication_id", task.DeduplicationID,
 			"error", err,
 		)
 		return model.Processed()
@@ -241,7 +239,6 @@ func (h *BgTaskHandler) handleWorkerTerminateRun(_ context.Context, task ext.Bac
 	var payload ext.WorkerTerminateRunPayload
 	if err := msgpack.Unmarshal(task.Payload, &payload); err != nil {
 		slog.Error("failed to unmarshal worker terminate run payload, discarding",
-			"deduplicationID", task.DeduplicationID,
 			"error", err,
 		)
 		return model.Processed()
@@ -258,13 +255,13 @@ func (h *BgTaskHandler) handleWorkerTerminateRun(_ context.Context, task ext.Bac
 		if errors.Is(err, model.ErrWorkerUnreachable) {
 			slog.Debug("worker unreachable for terminate signal, it already stopped",
 				"workerID", payload.WorkerID,
-				"runID", payload.RunID,
+				"run_id", payload.RunID,
 			)
 			return model.Processed()
 		}
 		slog.Warn("failed to send terminate to worker, will retry",
 			"workerID", payload.WorkerID,
-			"runID", payload.RunID,
+			"run_id", payload.RunID,
 			"error", err,
 		)
 		return model.Retryable(RetryDelay)
@@ -272,7 +269,7 @@ func (h *BgTaskHandler) handleWorkerTerminateRun(_ context.Context, task ext.Bac
 
 	slog.Debug("sent terminate signal to worker",
 		"workerID", payload.WorkerID,
-		"runID", payload.RunID,
+		"run_id", payload.RunID,
 	)
 	return model.Processed()
 }

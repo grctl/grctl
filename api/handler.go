@@ -109,6 +109,6 @@ func (h *APIHandler) handleRegister(cmd external.Command) error {
 		return err
 	}
 
-	slog.Debug("Worker registered workflow types", "worker_id", register.WorkerID, "type_count", len(register.Types))
+	slog.Debug("worker registered workflow types", "worker_id", register.WorkerID, "type_count", len(register.Types))
 	return nil
 }

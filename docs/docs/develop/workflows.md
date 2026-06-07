@@ -201,9 +201,9 @@ Events are covered in depth in [Events](events.md).
 |----|----|----|
 | `Workflow(workflow_type)` | `workflow_type: str` | Create a workflow definition |
 | `@workflow.start()` | — | Register the start handler (exactly one) |
-| `@workflow.step()` | `timeout: timedelta \| None`, `retry_policy: RetryPolicy \| None` | Register a step handler |
-| `@workflow.event()` | `name: str \| None` | Register an event handler |
-| `@workflow.query()` | `name: str \| None` | Register a query handler |
+| `@workflow.step()` | `timeout: timedelta | None`, `retry_policy: RetryPolicy | None` | Register a step handler |
+| `@workflow.event()` | `name: str | None` | Register an event handler |
+| `@workflow.query()` | `name: str | None` | Register a query handler |
 
 ### Handler Signatures
 
@@ -218,5 +218,5 @@ Events are covered in depth in [Events](events.md).
 
 | Setting | Default |
 |----|------|
-| `timeout` | 10 seconds |
+| `timeout` | 5 minutes |
 | `retry_policy` | None (no retries, single attempt) |

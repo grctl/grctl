@@ -13,6 +13,9 @@ type ManifestSuite struct {
 }
 
 func TestManifest(t *testing.T) {
+	if err := Init(); err != nil {
+		t.Fatalf("failed to init manifest: %v", err)
+	}
 	suite.Run(t, new(ManifestSuite))
 }
 

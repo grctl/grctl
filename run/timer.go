@@ -33,28 +33,22 @@ func (h *TimerMsgHandler) Handle(ctx context.Context, timer ext.Timer, numDelive
 
 	if timer.Command.ID != "" {
 		// Command timers are not yet implemented.
-		slog.Error("command timer fired but not supported",
-			"timerID", timer.ID,
-			"wfID", timer.WFID,
-		)
+		slog.Error("command timer fired but not supported")
 		return intr.Processed()
 	}
 
 	// Timer has neither Directive nor Command — unrecoverable payload, no workflow to fail.
-	slog.Error("timer fired with no payload, cannot identify workflow",
-		"timerID", timer.ID,
-		"wfID", timer.WFID,
-	)
+	slog.Error("timer fired with no payload, cannot identify workflow")
 	return intr.Processed()
 }
 
 func (h *TimerMsgHandler) handleDirectiveTimer(ctx context.Context, timer ext.Timer, numDelivered uint64) intr.HandleResult {
 	if numDelivered > h.maxDeliveries {
 		slog.Error("timer exceeded max deliveries, failing workflow",
-			"timerID", timer.ID,
-			"wfID", timer.WFID,
-			"numDelivered", numDelivered,
-			"maxDeliveries", h.maxDeliveries,
+			"timer_id", timer.ID,
+			"wf_id", timer.WFID,
+			"num_delivered", numDelivered,
+			"max_deliveries", h.maxDeliveries,
 		)
 		cause := fmt.Sprintf("timer %s exceeded max delivery count %d", timer.ID, h.maxDeliveries)
 		return h.applyFailure(ctx, timer.Directive, cause)
@@ -66,7 +60,7 @@ func (h *TimerMsgHandler) handleDirectiveTimer(ctx context.Context, timer ext.Ti
 	case ext.TimerKindWaitTimeout:
 		return h.handleWaitTimeout(ctx, timer)
 	default:
-		slog.Error("Unknown timer kind", "kind", timer.Kind, "wfID", timer.WFID)
+		slog.Error("unknown timer kind", "kind", timer.Kind, "wf_id", timer.WFID)
 		return intr.Processed()
 	}
 }
@@ -74,30 +68,30 @@ func (h *TimerMsgHandler) handleDirectiveTimer(ctx context.Context, timer ext.Ti
 func (h *TimerMsgHandler) handleStepTimeout(ctx context.Context, timer ext.Timer) intr.HandleResult {
 	directive, err := h.buildStepTimeoutDirective(timer)
 	if err != nil {
-		slog.Error("Failed to build step timeout directive", "error", err, "wfID", timer.WFID)
+		slog.Error("failed to build step timeout directive", "error", err, "wf_id", timer.WFID)
 		cause := fmt.Sprintf("failed to build step timeout directive: %v", err)
 		return h.applyFailure(ctx, timer.Directive, cause)
 	}
 
 	err = h.publisher.PublishDirective(ctx, directive)
 	if err != nil {
-		slog.Error("Failed to enqueue step timeout directive",
+		slog.Error("failed to enqueue step timeout directive",
 			"error", err,
-			"wfID", timer.WFID,
-			"runID", directive.RunInfo.ID,
-			"directiveKind", directive.Kind,
+			"wf_id", timer.WFID,
+			"run_id", directive.RunInfo.ID,
+			"directive_kind", directive.Kind,
 		)
 		return intr.Retryable(RetryDelay)
 	}
 
-	slog.Debug("Enqueued step timeout directive", "wfID", timer.WFID)
+	slog.Debug("enqueued step timeout directive", "wf_id", timer.WFID)
 	return intr.Processed()
 }
 
 func (h *TimerMsgHandler) buildStepTimeoutDirective(timer ext.Timer) (ext.Directive, error) {
 	dispatchable, ok := timer.Directive.Msg.(ext.DispatchableMessage)
 	if !ok {
-		slog.Error("Invalid directive message for step timeout timer", "expected", "DispatchableMessage", "got", timer.Directive.Msg)
+		slog.Error("invalid directive message for step timeout timer", "expected", "DispatchableMessage", "got", timer.Directive.Msg)
 		return ext.Directive{}, fmt.Errorf("expected DispatchableMessage directive but got %T", timer.Directive.Msg)
 	}
 	runInfo := timer.Directive.RunInfo
@@ -128,7 +122,7 @@ func (h *TimerMsgHandler) applyFailure(ctx context.Context, d ext.Directive, cau
 
 	if err := h.publisher.PublishDirective(ctx, failDirective); err != nil {
 		slog.Error("failed to publish failure directive after timer exhaustion",
-			"wfID", d.RunInfo.WFID,
+			"wf_id", d.RunInfo.WFID,
 			"error", err,
 		)
 		return intr.Retryable(RetryDelay)
@@ -140,21 +134,21 @@ func (h *TimerMsgHandler) applyFailure(ctx context.Context, d ext.Directive, cau
 func (h *TimerMsgHandler) handleWaitTimeout(ctx context.Context, timer ext.Timer) intr.HandleResult {
 	directive, err := h.buildWaitTimeoutDirective(timer)
 	if err != nil {
-		slog.Error("Failed to build wait timeout directive", "error", err, "wfID", timer.WFID)
+		slog.Error("failed to build wait timeout directive", "error", err, "wf_id", timer.WFID)
 		cause := fmt.Sprintf("failed to build wait timeout directive: %v", err)
 		return h.applyFailure(ctx, timer.Directive, cause)
 	}
 
 	if err := h.publisher.PublishDirective(ctx, directive); err != nil {
-		slog.Error("Failed to enqueue wait timeout directive",
+		slog.Error("failed to enqueue wait timeout directive",
 			"error", err,
-			"wfID", timer.WFID,
+			"wf_id", timer.WFID,
 			"directiveKind", directive.Kind,
 		)
 		return intr.Retryable(RetryDelay)
 	}
 
-	slog.Debug("Enqueued wait timeout directive", "wfID", timer.WFID)
+	slog.Debug("enqueued wait timeout directive", "wf_id", timer.WFID)
 	return intr.Processed()
 }
 
@@ -162,9 +156,6 @@ func (h *TimerMsgHandler) buildWaitTimeoutDirective(timer ext.Timer) (ext.Direct
 	msg, ok := timer.Directive.Msg.(*ext.Wait)
 	if !ok {
 		return ext.Directive{}, fmt.Errorf("expected Wait but got %T", timer.Directive.Msg)
-	}
-	if msg.TimeoutStepName == "" {
-		return ext.Directive{}, fmt.Errorf("wait timeout timer fired with no timeout_step_name")
 	}
 	return ext.Directive{
 		ID:      ext.NewDirectiveID(),

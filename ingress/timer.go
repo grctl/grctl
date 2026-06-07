@@ -69,9 +69,9 @@ func (ts *timerStream) AddTimer(ctx context.Context, timer ext.Timer, expiresAt 
 		return fmt.Errorf("failed to publish timer message: %w", err)
 	}
 
-	slog.Info("Timer scheduled",
+	slog.Info("timer scheduled",
 		"kind", timer.Kind,
-		"wfID", timer.WFID,
+		"wf_id", timer.WFID,
 		"expiresAt", expiresAt,
 	)
 
@@ -87,18 +87,18 @@ func (ts *timerStream) CancelTimer(ctx context.Context, wfID ext.WFID, kind ext.
 	if err != nil {
 		// Ignore "no messages" errors - timer may have already fired
 		if errors.Is(err, jetstream.ErrMsgNotFound) {
-			slog.Debug("Timer already fired or doesn't exist",
+			slog.Debug("timer already fired or doesn't exist",
 				"kind", kind,
-				"wfID", wfID,
+				"wf_id", wfID,
 				"subject", subject)
 			return nil
 		}
 		return fmt.Errorf("failed to purge timer subject: %w", err)
 	}
 
-	slog.Debug("Timer canceled",
+	slog.Debug("timer canceled",
 		"kind", kind,
-		"wfID", wfID,
+		"wf_id", wfID,
 		"subject", subject)
 
 	return nil
@@ -140,7 +140,7 @@ func (ts *timerStream) Start(handler TimerHandler) error {
 			if errors.Is(err, jetstream.ErrServerShutdown) {
 				return
 			}
-			slog.Error("Timer consumer error", "error", err)
+			slog.Error("timer consumer error", "error", err)
 		}),
 	)
 	if err != nil {
@@ -148,7 +148,7 @@ func (ts *timerStream) Start(handler TimerHandler) error {
 	}
 
 	ts.consumeCtx = cons
-	slog.Debug("Timer consumer started")
+	slog.Debug("timer consumer started")
 	return nil
 }
 
@@ -158,7 +158,7 @@ func (ts *timerStream) Stop() {
 		ts.consumeCtx.Stop()
 	}
 	ts.wg.Wait()
-	slog.Debug("Timer consumer stopped")
+	slog.Debug("timer consumer stopped")
 }
 
 // processMessage processes a fired timer message and translates HandleResult to NATS operations
@@ -168,17 +168,17 @@ func (ts *timerStream) processMessage(msg jetstream.Msg) {
 
 	var timer ext.Timer
 	if err := msgpack.Unmarshal(msg.Data(), &timer); err != nil {
-		slog.Error("Failed to unmarshal timer, acknowledging to prevent retry",
+		slog.Error("failed to unmarshal timer, acknowledging to prevent retry",
 			"error", err)
 		if ackErr := msg.Ack(); ackErr != nil {
-			slog.Error("Failed to Ack malformed timer message", "error", ackErr)
+			slog.Error("failed to Ack malformed timer message", "error", ackErr)
 		}
 		return
 	}
 
 	numDelivered := uint64(1)
 	if md, err := msg.Metadata(); err != nil {
-		slog.Warn("Failed to read timer message metadata, defaulting delivery count", "error", err)
+		slog.Warn("failed to read timer message metadata, defaulting delivery count", "error", err)
 	} else {
 		numDelivered = uint64(md.NumDelivered)
 	}
@@ -192,18 +192,18 @@ func (ts *timerStream) processMessage(msg jetstream.Msg) {
 	switch result.Action {
 	case intr.ActionProcessed:
 		if err := msg.Ack(); err != nil {
-			slog.Error("Failed to Ack timer message", "error", err)
+			slog.Error("failed to Ack timer message", "error", err)
 		}
 
 	case intr.ActionRetryable:
 		if err := msg.NakWithDelay(result.RetryDelay); err != nil {
-			slog.Error("Failed to Nak timer message with delay", "error", err)
+			slog.Error("failed to Nak timer message with delay", "error", err)
 		}
 
 	default:
-		slog.Error("Unknown handler action, defaulting to Nak", "action", result.Action)
+		slog.Error("unknown handler action, defaulting to Nak", "action", result.Action)
 		if err := msg.Nak(); err != nil {
-			slog.Error("Failed to Nak timer message", "error", err)
+			slog.Error("failed to Nak timer message", "error", err)
 		}
 	}
 }

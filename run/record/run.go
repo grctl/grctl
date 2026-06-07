@@ -56,7 +56,7 @@ func Start(d ext.Directive) ([]model.Record, error) {
 		})
 	}
 
-	slog.Debug("StartRun transition created")
+	slog.Debug("startRun transition created")
 
 	return records, nil
 }

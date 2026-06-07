@@ -3,9 +3,7 @@ go = "1.25.6"
 "go:github.com/golangci/golangci-lint/cmd/golangci-lint" = "latest"
 "go:github.com/air-verse/air" = "latest"
 
-[tasks.docs]
-description = "Preview documentation"
-run = "mise run -C docs preview"
+
 
 [tasks.build]
 description = "Build grctld (server) and grctl (CLI) binaries"
@@ -51,6 +49,10 @@ for platform in "${platforms[@]}"; do
   rm "dist/grctld${ext}" "dist/grctl${ext}"
 done
 """
+
+[tasks.docs]
+description = "Preview documentation"
+run = "mise run -C docs preview"
 
 [tasks.start]
 description = "Build and run the server daemon"

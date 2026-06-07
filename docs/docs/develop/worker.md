@@ -133,7 +133,7 @@ connection = await Connection.connect(servers=["nats://prod-server:4225"])
 |---|---|---|---|
 | `workflows` | `list[Workflow]` | — | Workflow instances to handle. |
 | `connection` | `Connection` | — | Active NATS connection. |
-| `workflow_logger` | `logging.Logger \| None` | `None` | Logger used by `ctx.logger` inside handlers. Defaults to the root logger. |
+| `workflow_logger` | `logging.Logger | None` | `None` | Logger used by `ctx.logger` inside handlers. Defaults to the root logger. |
 
 ### Methods
 

@@ -50,15 +50,21 @@ type EventCmd struct {
 	Payload   *any   `json:"payload" msgpack:"payload"`
 }
 
+// EventDef defines the per-event timeout configuration for a workflow type.
+type EventDef struct {
+	Name      string `json:"name" msgpack:"name"`
+	TimeoutMS uint32 `json:"timeout_ms" msgpack:"timeout_ms"`
+}
+
 // WorkflowTypeDef is the structural definition of a single workflow type as
 // reported by a worker: its entrypoint step and the names of its handlers.
 type WorkflowTypeDef struct {
-	Type               WFType   `json:"type" msgpack:"type"`
-	StartStep          string   `json:"start_step" msgpack:"start_step"`
-	Steps              []string `json:"steps" msgpack:"steps"`
-	Events             []string `json:"events" msgpack:"events"`
-	Queries            []string `json:"queries" msgpack:"queries"`
-	StartStepTimeoutMS uint32   `json:"start_step_timeout_ms" msgpack:"start_step_timeout_ms"`
+	Type               WFType     `json:"type" msgpack:"type"`
+	StartStep          string     `json:"start_step" msgpack:"start_step"`
+	Steps              []string   `json:"steps" msgpack:"steps"`
+	Events             []EventDef `json:"events" msgpack:"events"`
+	Queries            []string   `json:"queries" msgpack:"queries"`
+	StartStepTimeoutMS uint32     `json:"start_step_timeout_ms" msgpack:"start_step_timeout_ms"`
 }
 
 // RegisterCmd is sent once per worker startup to sync its catalog of workflow

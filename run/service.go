@@ -12,6 +12,8 @@ import (
 	ext "grctl/server/types/external/v1"
 )
 
+
+
 type RunStore interface {
 	CreateRunInfo(ctx context.Context, info ext.RunInfo) error
 	GetRunByWFID(ctx context.Context, wfID ext.WFID) (ext.RunInfo, uint64, error)
@@ -23,6 +25,7 @@ type RunStore interface {
 type TypeRegistry interface {
 	PutTypes(ctx context.Context, workerID string, defs []ext.WorkflowTypeDef) error
 	GetStartStepTimeout(ctx context.Context, wfType ext.WFType) (uint32, error)
+	GetEventDef(ctx context.Context, wfType ext.WFType, eventName string) (ext.EventDef, error)
 }
 
 type Service struct {
@@ -71,12 +74,12 @@ func (m *Service) StartRun(ctx context.Context, cmd ext.StartCmd) error {
 		return fmt.Errorf("failed to create run in store: %w", err)
 	}
 
-	slog.Debug("enqueuing start directive", "runID", cmd.RunInfo.ID)
+	slog.Debug("enqueuing start directive", "run_id", cmd.RunInfo.ID)
 	if err := m.store.PublishDirective(ctx, directive); err != nil {
 		return fmt.Errorf("failed to enqueue start directive: %w", err)
 	}
 
-	slog.Debug("workflow started", "workflowID", cmd.RunInfo.WFID, "runID", cmd.RunInfo.ID)
+	slog.Debug("workflow started", "workflow_id", cmd.RunInfo.WFID, "run_id", cmd.RunInfo.ID)
 	return nil
 }
 
@@ -112,11 +115,16 @@ func (m *Service) Send(ctx context.Context, cmd ext.Command) error {
 		},
 	}
 
+	eventDef, err := m.registry.GetEventDef(ctx, runInfo.WFType, eventName)
+	if err == nil && eventDef.TimeoutMS > 0 {
+		directive.Msg.(*ext.Event).Timeout = eventDef.TimeoutMS
+	}
+
 	if err := m.store.PublishDirective(ctx, directive); err != nil {
 		return fmt.Errorf("failed to enqueue event directive: %w", err)
 	}
 
-	slog.Debug("event sent to workflow", "workflowID", wfID, "eventName", eventName, "runInfo", runInfo)
+	slog.Debug("event sent to workflow", "workflow_id", wfID, "event_name", eventName, "run_info", runInfo)
 	return nil
 }
 
@@ -156,7 +164,7 @@ func (m *Service) Terminate(ctx context.Context, cmd ext.Command) error {
 		return fmt.Errorf("failed to enqueue terminate directive: %w", err)
 	}
 
-	slog.Debug("terminate directive enqueued", "workflowID", wfID, "reason", msg.Reason)
+	slog.Debug("terminate directive enqueued", "workflow_id", wfID, "reason", msg.Reason)
 	return nil
 }
 
@@ -190,6 +198,6 @@ func (m *Service) Cancel(ctx context.Context, cmd ext.Command) error {
 		return fmt.Errorf("failed to enqueue cancel directive: %w", err)
 	}
 
-	slog.Debug("cancel directive enqueued", "workflowID", wfID, "reason", reason)
+	slog.Debug("cancel directive enqueued", "workflow_id", wfID, "reason", reason)
 	return nil
 }

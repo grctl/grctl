@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"grctl/server/natsreg"
 	"grctl/server/testutil"
 	ext "grctl/server/types/external/v1"
 
@@ -26,6 +27,10 @@ func (s *RegistryTestSuite) SetupTest() {
 	nc, js, ns, err := testutil.RunEmbeddedNATS(s.T().TempDir())
 	s.Require().NoError(err)
 	s.nc, s.ns = nc, ns
+
+	if natsreg.Manifest == nil {
+		s.Require().NoError(natsreg.Init())
+	}
 
 	stream, err := EnsureStateStream(context.Background(), js, true)
 	s.Require().NoError(err)
@@ -48,7 +53,7 @@ func orderType() ext.WorkflowTypeDef {
 		Type:      ext.WFType("order_wf"),
 		StartStep: "start",
 		Steps:     []string{"reserve", "charge"},
-		Events:    []string{"approve"},
+		Events:    []ext.EventDef{{Name: "approve"}},
 		Queries:   []string{"status"},
 	}
 }
@@ -135,6 +140,28 @@ func (s *RegistryTestSuite) TestPutTypes_EmptyCatalogWritesNothing() {
 	s.Empty(entries)
 }
 
+func (s *RegistryTestSuite) TestRegistry_GetEventDef_ReturnsZeroForUnknownEvent() {
+	ctx := context.Background()
+	def := ext.WorkflowTypeDef{
+		Type:   ext.WFType("order_wf"),
+		Events: []ext.EventDef{{Name: "approve"}},
+	}
+
+	s.Require().NoError(s.registry.PutTypes(ctx, "w:worker-1", []ext.WorkflowTypeDef{def}))
+
+	ed, err := s.registry.GetEventDef(ctx, def.Type, "nonexistent")
+	s.Require().NoError(err)
+	s.Equal("", ed.Name)
+	s.Equal(uint32(0), ed.TimeoutMS)
+}
+
+func (s *RegistryTestSuite) TestRegistry_GetEventDef_ReturnsErrorForUnregisteredType() {
+	ctx := context.Background()
+
+	_, err := s.registry.GetEventDef(ctx, ext.WFType("unknown"), "ev")
+	s.Require().ErrorIs(err, ErrWorkflowTypeNotRegistered)
+}
+
 // TestPutTypes_SurvivesServerRestart writes to a file-backed stream, restarts
 // the NATS server against the same store directory, and confirms the entry is
 // still readable without re-registration.
@@ -142,6 +169,12 @@ func TestPutTypes_SurvivesServerRestart(t *testing.T) {
 	storeDir := t.TempDir()
 	ctx := context.Background()
 	def := orderType()
+
+	if natsreg.Manifest == nil {
+		if err := natsreg.Init(); err != nil {
+			t.Fatalf("failed to init nats manifest: %v", err)
+		}
+	}
 
 	nc, js, ns, err := testutil.RunEmbeddedNATS(storeDir)
 	if err != nil {

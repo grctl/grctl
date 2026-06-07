@@ -18,6 +18,9 @@ type Record2NatsSuite struct {
 }
 
 func TestRecord2Nats(t *testing.T) {
+	if err := natsreg.Init(); err != nil {
+		t.Fatalf("failed to init nats manifest: %v", err)
+	}
 	suite.Run(t, new(Record2NatsSuite))
 }
 

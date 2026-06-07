@@ -121,11 +121,10 @@ type Terminate struct {
 }
 
 type Event struct {
-	EventSeqID      *uint64 `json:"event_seq_id,omitempty" msgpack:"event_seq_id,omitempty"`
-	EventName       string  `json:"event_name" msgpack:"event_name"`
-	Payload         any     `json:"payload" msgpack:"payload"`
-	Timeout         uint32  `json:"timeout_ms" msgpack:"timeout_ms"`
-	TimeoutStepName string  `json:"timeout_step_name" msgpack:"timeout_step_name"`
+	EventSeqID *uint64 `json:"event_seq_id,omitempty" msgpack:"event_seq_id,omitempty"`
+	EventName  string  `json:"event_name" msgpack:"event_name"`
+	Payload    any     `json:"payload" msgpack:"payload"`
+	Timeout    uint32  `json:"timeout_ms" msgpack:"timeout_ms"`
 }
 
 func (e Event) StepName() string {
@@ -326,7 +325,7 @@ func (d *Directive) EncodeMsgpack(enc *msgpack.Encoder) error {
 func (d *Directive) DecodeMsgpack(dec *msgpack.Decoder) error {
 	var wire directiveWire
 	if err := dec.Decode(&wire); err != nil {
-		slog.Error("Failed to decode directive wire format", "error", err)
+		slog.Error("failed to decode directive wire format", "error", err)
 		return fmt.Errorf("failed to decode directive: %w", err)
 	}
 
@@ -342,7 +341,7 @@ func (d *Directive) DecodeMsgpack(dec *msgpack.Decoder) error {
 
 	nxDirective := factory()
 	if err := msgpack.Unmarshal(wire.Msg, nxDirective); err != nil {
-		slog.Error("Failed to unmarshal directive message",
+		slog.Error("failed to unmarshal directive message",
 			"error", err,
 			"kind", wire.Kind,
 			"msg_bytes_len", len(wire.Msg))

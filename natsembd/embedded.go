@@ -10,14 +10,40 @@ import (
 
 	"grctl/server/config"
 
-	"github.com/nats-io/nats-server/v2/server"
+	natsserver "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
 const embeddedServerReadyTimeout = 15 * time.Second
 
-func RunEmbeddedServerWithConfig(natsCfg config.NATSConfig) (*nats.Conn, jetstream.JetStream, *server.Server, error) {
+type natsSlogAdapter struct{}
+
+func (natsSlogAdapter) Noticef(format string, v ...any) {
+	slog.Default().With("subsystem", "nats").Info(fmt.Sprintf(format, v...))
+}
+
+func (natsSlogAdapter) Warnf(format string, v ...any) {
+	slog.Default().With("subsystem", "nats").Warn(fmt.Sprintf(format, v...))
+}
+
+func (natsSlogAdapter) Errorf(format string, v ...any) {
+	slog.Default().With("subsystem", "nats").Error(fmt.Sprintf(format, v...))
+}
+
+func (natsSlogAdapter) Fatalf(format string, v ...any) {
+	slog.Default().With("subsystem", "nats").Error(fmt.Sprintf(format, v...))
+}
+
+func (natsSlogAdapter) Debugf(format string, v ...any) {
+	slog.Default().With("subsystem", "nats").Debug(fmt.Sprintf(format, v...))
+}
+
+func (natsSlogAdapter) Tracef(format string, v ...any) {
+	slog.Default().With("subsystem", "nats").Debug(fmt.Sprintf(format, v...))
+}
+
+func RunEmbeddedServerWithConfig(natsCfg config.NATSConfig) (*nats.Conn, jetstream.JetStream, *natsserver.Server, error) {
 	opts, err := resolveEmbeddedOptions(natsCfg)
 	if err != nil {
 		return nil, nil, nil, err
@@ -25,8 +51,8 @@ func RunEmbeddedServerWithConfig(natsCfg config.NATSConfig) (*nats.Conn, jetstre
 	return runEmbeddedServer(opts)
 }
 
-func resolveEmbeddedOptions(natsCfg config.NATSConfig) (*server.Options, error) {
-	opts := &server.Options{
+func resolveEmbeddedOptions(natsCfg config.NATSConfig) (*natsserver.Options, error) {
+	opts := &natsserver.Options{
 		ServerName: natsCfg.ServerName,
 		Host:       "127.0.0.1",
 		JetStream:  true,
@@ -35,7 +61,7 @@ func resolveEmbeddedOptions(natsCfg config.NATSConfig) (*server.Options, error) 
 	}
 
 	if strings.TrimSpace(natsCfg.ConfigFile) != "" {
-		fileOpts, err := server.ProcessConfigFile(natsCfg.ConfigFile)
+		fileOpts, err := natsserver.ProcessConfigFile(natsCfg.ConfigFile)
 		if err != nil {
 			return nil, fmt.Errorf("process NATS config file: %w", err)
 		}
@@ -54,7 +80,7 @@ func resolveEmbeddedOptions(natsCfg config.NATSConfig) (*server.Options, error) 
 	return opts, nil
 }
 
-func applySyncInterval(opts *server.Options, syncInterval string) {
+func applySyncInterval(opts *natsserver.Options, syncInterval string) {
 	if syncInterval == "always" {
 		opts.SyncAlways = true
 		opts.SyncInterval = 0
@@ -88,12 +114,14 @@ func NewJetStreamContext(nc *nats.Conn) (jetstream.JetStream, error) {
 	return js, nil
 }
 
-func runEmbeddedServer(opts *server.Options) (*nats.Conn, jetstream.JetStream, *server.Server, error) {
-	slog.Info("Embedded NATS starting", "port", opts.Port, "server_name", opts.ServerName)
-	ns, err := server.NewServer(opts)
+func runEmbeddedServer(opts *natsserver.Options) (*nats.Conn, jetstream.JetStream, *natsserver.Server, error) {
+	slog.Info("embedded nats starting", "port", opts.Port, "server_name", opts.ServerName)
+	ns, err := natsserver.NewServer(opts)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
+	ns.SetLogger(natsSlogAdapter{}, false, false)
 
 	go ns.Start()
 

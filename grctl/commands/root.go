@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"grctl/server/natsreg"
+
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +26,9 @@ var rootCmd = &cobra.Command{
 It provides durable workflow execution with state management, task checkpointing,
 and horizontal scalability through NATS messaging.`,
 	SilenceUsage: true,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return natsreg.Init()
+	},
 }
 
 var versionCmd = &cobra.Command{

@@ -170,7 +170,7 @@ If an event does arrive before the timeout, the timeout step is not run.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `str \| None` | `None` | Event name. Defaults to the function name. |
+| `name` | `str | None` | `None` | Event name. Defaults to the function name. |
 
 Handler signature:
 
@@ -182,12 +182,12 @@ async def handler(ctx: Context, [**payload_kwargs]) -> Directive
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `timeout` | `timedelta \| None` | `None` | How long to wait before running the timeout step. |
-| `on_timeout` | `Callable \| None` | `None` | Step function to run if the timeout fires. Required when `timeout` is set. |
+| `timeout` | `timedelta | None` | `None` | How long to wait before running the timeout step. |
+| `on_timeout` | `Callable | None` | `None` | Step function to run if the timeout fires. Required when `timeout` is set. |
 
 ### `handle.send()`
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `event_name` | `str` | — | Name of the event to dispatch. Must match a registered `@workflow.event()` handler. |
-| `payload` | `Any \| None` | `None` | Optional data passed to the handler. Dicts are unpacked as kwargs; scalars are passed as a positional argument. |
+| `payload` | `Any | None` | `None` | Optional data passed to the handler. Dicts are unpacked as kwargs; scalars are passed as a positional argument. |

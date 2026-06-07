@@ -5,3 +5,7 @@
     width: 100%;
     display: table;
 }
+.md-typeset table:not([class]) td:not(:last-child),
+.md-typeset table:not([class]) th:not(:last-child) {
+    white-space: nowrap;
+}

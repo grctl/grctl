@@ -52,7 +52,7 @@ func (q *bgTaskQueue) Start(handler BgTaskHandler) error {
 			if errors.Is(err, jetstream.ErrServerShutdown) {
 				return
 			}
-			slog.Error("Background task consumer error", "error", err)
+			slog.Error("background task consumer error", "error", err)
 		}),
 	)
 	if err != nil {
@@ -60,7 +60,7 @@ func (q *bgTaskQueue) Start(handler BgTaskHandler) error {
 	}
 
 	q.consumeCtx = cons
-	slog.Debug("Background task consumer started")
+	slog.Debug("background task consumer started")
 	return nil
 }
 
@@ -69,7 +69,7 @@ func (q *bgTaskQueue) Stop() {
 		q.consumeCtx.Stop()
 	}
 	q.wg.Wait()
-	slog.Debug("Background task consumer stopped")
+	slog.Debug("background task consumer stopped")
 }
 
 func (q *bgTaskQueue) processMessage(msg jetstream.Msg) {
@@ -78,16 +78,16 @@ func (q *bgTaskQueue) processMessage(msg jetstream.Msg) {
 
 	var task ext.BackgroundTask
 	if err := msgpack.Unmarshal(msg.Data(), &task); err != nil {
-		slog.Error("Failed to unmarshal background task, acknowledging to prevent retry", "error", err)
+		slog.Error("failed to unmarshal background task, acknowledging to prevent retry", "error", err)
 		if ackErr := msg.Ack(); ackErr != nil {
-			slog.Error("Failed to Ack malformed background task message", "error", ackErr)
+			slog.Error("failed to Ack malformed background task message", "error", ackErr)
 		}
 		return
 	}
 
 	numDelivered := uint64(1)
 	if md, err := msg.Metadata(); err != nil {
-		slog.Warn("Failed to read background task message metadata, defaulting delivery count", "error", err)
+		slog.Warn("failed to read background task message metadata, defaulting delivery count", "error", err)
 	} else {
 		numDelivered = uint64(md.NumDelivered)
 	}
@@ -100,18 +100,18 @@ func (q *bgTaskQueue) processMessage(msg jetstream.Msg) {
 	switch result.Action {
 	case intr.ActionProcessed:
 		if err := msg.Ack(); err != nil {
-			slog.Error("Failed to Ack background task message", "error", err)
+			slog.Error("failed to Ack background task message", "error", err)
 		}
 
 	case intr.ActionRetryable:
 		if err := msg.NakWithDelay(result.RetryDelay); err != nil {
-			slog.Error("Failed to Nak background task message with delay", "error", err)
+			slog.Error("failed to Nak background task message with delay", "error", err)
 		}
 
 	default:
-		slog.Error("Unknown handler action for background task, defaulting to Nak", "action", result.Action)
+		slog.Error("unknown handler action for background task, defaulting to Nak", "action", result.Action)
 		if err := msg.Nak(); err != nil {
-			slog.Error("Failed to Nak background task message", "error", err)
+			slog.Error("failed to Nak background task message", "error", err)
 		}
 	}
 }

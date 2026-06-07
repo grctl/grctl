@@ -21,7 +21,7 @@ func TestRegisterCmd_RoundTrip(t *testing.T) {
 					Type:      WFType("order_wf"),
 					StartStep: "start",
 					Steps:     []string{"reserve", "charge"},
-					Events:    []string{"approve"},
+					Events:    []EventDef{{Name: "approve"}},
 					Queries:   []string{"status"},
 				},
 				{
@@ -85,6 +85,47 @@ func TestCommand_SenderID_RoundTrip(t *testing.T) {
 	require.NoError(t, msgpack.Unmarshal(data, &decoded))
 
 	require.Equal(t, cmd.SenderID, decoded.SenderID)
+}
+
+func TestEventDef_RoundTrip(t *testing.T) {
+	def := EventDef{Name: "order_placed", TimeoutMS: 5000}
+
+	data, err := msgpack.Marshal(&def)
+	require.NoError(t, err)
+
+	var decoded EventDef
+	require.NoError(t, msgpack.Unmarshal(data, &decoded))
+	require.Equal(t, def, decoded)
+}
+
+func TestEventDef_Defaults(t *testing.T) {
+	def := EventDef{Name: "no_timeout"}
+
+	data, err := msgpack.Marshal(&def)
+	require.NoError(t, err)
+
+	var decoded EventDef
+	require.NoError(t, msgpack.Unmarshal(data, &decoded))
+	require.Equal(t, def.Name, decoded.Name)
+	require.Equal(t, uint32(0), decoded.TimeoutMS)
+}
+
+func TestWorkflowTypeDef_WithEventDef_RoundTrip(t *testing.T) {
+	def := WorkflowTypeDef{
+		Type:               WFType("order_wf"),
+		StartStep:          "start",
+		Steps:              []string{"reserve", "charge"},
+		Events:             []EventDef{{Name: "approve", TimeoutMS: 3000}},
+		Queries:            []string{"status"},
+		StartStepTimeoutMS: 10000,
+	}
+
+	data, err := msgpack.Marshal(&def)
+	require.NoError(t, err)
+
+	var decoded WorkflowTypeDef
+	require.NoError(t, msgpack.Unmarshal(data, &decoded))
+	require.Equal(t, def, decoded)
 }
 
 func TestCommand_EmptySenderID_EncodeError(t *testing.T) {

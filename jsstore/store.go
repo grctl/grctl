@@ -16,6 +16,8 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+var log = slog.With("component", "jsstore")
+
 var ErrRunStateNotFound = errors.New("run state not found")
 
 type JSStateStore struct {
@@ -114,7 +116,7 @@ func (s *JSStateStore) GetRunByRunID(ctx context.Context, RunID ext.RunID) (ext.
 
 func (s *JSStateStore) ListRuns(ctx context.Context) ([]*ext.RunInfo, error) {
 	subject := natsreg.Manifest.RunInfoKey("*", "*", "*")
-	slog.Debug("Listing workflow runs with subject pattern", "subject", subject)
+	slog.Debug("listing workflow runs with subject pattern", "subject", subject)
 	streamName := natsreg.Manifest.StateStreamName()
 	msgs, err := jetstreamext.GetLastMsgsFor(ctx, s.js, streamName, []string{subject})
 	if err != nil {
@@ -124,13 +126,13 @@ func (s *JSStateStore) ListRuns(ctx context.Context) ([]*ext.RunInfo, error) {
 	var runs []*ext.RunInfo
 	for msg, err := range msgs {
 		if err != nil {
-			slog.Error("ListRuns iteration error", "error", err)
+			slog.Error("listRuns iteration error", "error", err)
 			continue
 		}
 
 		var info ext.RunInfo
 		if err := msgpack.Unmarshal(msg.Data, &info); err != nil {
-			slog.Error("ListRuns unmarshal error", "error", err)
+			slog.Error("listRuns unmarshal error", "error", err)
 			continue
 		}
 		runs = append(runs, &info)
@@ -211,7 +213,7 @@ func (s *JSStateStore) GetNextEvent(ctx context.Context, wfID ext.WFID, startAft
 
 func (h *JSStateStore) GetHistoryForRun(ctx context.Context, workflowID ext.WFID, runID ext.RunID) ([]*ext.HistoryEvent, error) {
 	subject := natsreg.Manifest.HistorySubject(workflowID, runID)
-	slog.Debug("Fetching history for run", "subject", subject)
+	slog.Debug("fetching history for run", "subject", subject)
 	streamName := natsreg.Manifest.StateStreamName()
 	msgs, err := jetstreamext.GetBatch(ctx, h.js, streamName, 10000, jetstreamext.GetBatchSubject(subject))
 	if err != nil {
@@ -221,19 +223,19 @@ func (h *JSStateStore) GetHistoryForRun(ctx context.Context, workflowID ext.WFID
 	var events []*ext.HistoryEvent
 	for msg, err := range msgs {
 		if err != nil {
-			slog.Debug("GetHistoryForRun iteration error", "error", err)
+			slog.Debug("getHistoryForRun iteration error", "error", err)
 			continue
 		}
 
 		var event ext.HistoryEvent
 		if err := msgpack.Unmarshal(msg.Data, &event); err != nil {
-			slog.Debug("GetHistoryForRun unmarshal error", "error", err)
+			slog.Debug("getHistoryForRun unmarshal error", "error", err)
 			continue
 		}
 		events = append(events, &event)
 	}
 
-	slog.Debug("Listed workflow runs", "count", len(events))
+	slog.Debug("listed workflow runs", "count", len(events))
 
 	return events, nil
 }

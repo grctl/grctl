@@ -26,6 +26,13 @@ const (
 type Config struct {
 	NATS     NATSConfig     `koanf:"nats"`
 	Defaults DefaultsConfig `koanf:"defaults"`
+	Logging  LoggingConfig  `koanf:"logging"`
+}
+
+type LoggingConfig struct {
+	Level     string `koanf:"level"`
+	Format    string `koanf:"format"`
+	AddSource bool   `koanf:"add_source"`
 }
 
 type NATSConfig struct {

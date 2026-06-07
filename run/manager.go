@@ -9,13 +9,15 @@ import (
 	"time"
 )
 
+
+
 type ctxKey string
 
 const (
-	ctxKeyWFID         ctxKey = "wfID"
-	ctxKeyRunID        ctxKey = "runID"
+	ctxKeyWFID         ctxKey = "wf_id"
+	ctxKeyRunID        ctxKey = "run_id"
 	ctxKeyDirective    ctxKey = "directive"
-	ctxKeyNumDelivered ctxKey = "numDelivered"
+	ctxKeyNumDelivered ctxKey = "num_delivered"
 	ctxKeyRunStateKind ctxKey = "runStateKind"
 )
 
@@ -109,7 +111,7 @@ func (m *Manager) failAndCommit(ctx context.Context, d ext.Directive, currentSta
 	// But concrete failure will be logged and the result will be processed.
 	result, err := m.commit(ctx, failureUpdates)
 	if err != nil {
-		slog.Error("failed to apply failure updates", "error", err, "directiveID", d.ID)
+		slog.Error("failed to apply failure updates", "error", err)
 		return model.Processed()
 	}
 	return result

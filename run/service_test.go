@@ -54,6 +54,10 @@ func (f *fakeTypeRegistry) GetStartStepTimeout(_ context.Context, _ ext.WFType) 
 	return f.timeoutMS, f.getErr
 }
 
+func (f *fakeTypeRegistry) GetEventDef(_ context.Context, _ ext.WFType, _ string) (ext.EventDef, error) {
+	return ext.EventDef{}, nil
+}
+
 type ServiceSuite struct {
 	suite.Suite
 	store    *fakeRunStore

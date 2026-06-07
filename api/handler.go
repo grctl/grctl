@@ -10,6 +10,8 @@ import (
 	"grctl/server/types/external/v1"
 )
 
+var log = slog.With("component", "api")
+
 var (
 	ErrUnknownAPICommand  = errors.New("unknown API command")
 	ErrInvalidMessageType = errors.New("message type does not match command kind")
@@ -109,6 +111,6 @@ func (h *APIHandler) handleRegister(cmd external.Command) error {
 		return err
 	}
 
-	slog.Debug("Worker registered workflow types", "worker_id", register.WorkerID, "type_count", len(register.Types))
+	slog.Debug("worker registered workflow types", "worker_id", register.WorkerID, "type_count", len(register.Types))
 	return nil
 }

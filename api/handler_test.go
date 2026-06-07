@@ -37,6 +37,10 @@ func (s *HandleStartCmdTestSuite) SetupTest() {
 	s.nc = nc
 	s.ns = ns
 
+	if natsreg.Manifest == nil {
+		s.Require().NoError(natsreg.Init())
+	}
+
 	cfg := &config.Config{
 		Defaults: config.DefaultsConfig{
 			WorkerResponseTimeout: 5 * time.Second,
@@ -214,7 +218,7 @@ func (s *HandleStartCmdTestSuite) TestHandleRegister_PersistsAllTypes() {
 			Type:      ext.WFType("order_wf"),
 			StartStep: "start",
 			Steps:     []string{"reserve", "charge"},
-			Events:    []string{"approve"},
+			Events:    []ext.EventDef{{Name: "approve"}},
 			Queries:   []string{"status"},
 		},
 		{Type: ext.WFType("payment_wf"), StartStep: "begin", Steps: []string{"authorize"}},
@@ -243,6 +247,68 @@ func (s *HandleStartCmdTestSuite) TestHandleRegister_PersistsAllTypes() {
 		s.Equal(def, entry.WorkflowTypeDef)
 		s.Equal("w:worker-1", entry.WorkerID)
 	}
+}
+
+func (s *HandleStartCmdTestSuite) TestHandleRegister_PersistsEventDefs() {
+	ctx := context.Background()
+	defs := []ext.WorkflowTypeDef{
+		{
+			Type:      ext.WFType("order_wf"),
+			StartStep: "start",
+			Steps:     []string{"reserve", "charge"},
+			Events: []ext.EventDef{
+				{Name: "approve", TimeoutMS: 5000},
+				{Name: "cancel", TimeoutMS: 3000},
+				{Name: "no_timeout"},
+			},
+			Queries: []string{"status"},
+		},
+	}
+
+	registerCmd := ext.Command{
+		ID:        ext.NewCmdID(),
+		Kind:      ext.CmdKindWorkerRegister,
+		Timestamp: time.Now().UTC(),
+		SenderID:  "w:worker-1",
+		Msg:       &ext.RegisterCmd{WorkerID: "w:worker-1", Types: defs},
+	}
+	data, err := msgpack.Marshal(&registerCmd)
+	s.Require().NoError(err)
+
+	msg, err := s.nc.Request(natsreg.Manifest.WorkerCommandSubject(), data, 3*time.Second)
+	s.Require().NoError(err)
+
+	var resp api.GrctlAPIResponse
+	s.Require().NoError(msgpack.Unmarshal(msg.Data, &resp))
+	s.Require().True(resp.Success, "expected success response, got error: %v", resp.Error)
+
+	entry, err := s.registry.GetType(ctx, ext.WFType("order_wf"))
+	s.Require().NoError(err)
+	s.Require().Len(entry.Events, 3)
+
+	// Full timeout def
+	ed, err := s.registry.GetEventDef(ctx, ext.WFType("order_wf"), "approve")
+	s.Require().NoError(err)
+	s.Equal("approve", ed.Name)
+	s.Equal(uint32(5000), ed.TimeoutMS)
+
+	// Timeout without handler
+	ed, err = s.registry.GetEventDef(ctx, ext.WFType("order_wf"), "cancel")
+	s.Require().NoError(err)
+	s.Equal("cancel", ed.Name)
+	s.Equal(uint32(3000), ed.TimeoutMS)
+
+	// No timeout at all
+	ed, err = s.registry.GetEventDef(ctx, ext.WFType("order_wf"), "no_timeout")
+	s.Require().NoError(err)
+	s.Equal("no_timeout", ed.Name)
+	s.Equal(uint32(0), ed.TimeoutMS)
+
+	// Unknown event returns zero value
+	ed, err = s.registry.GetEventDef(ctx, ext.WFType("order_wf"), "nonexistent")
+	s.Require().NoError(err)
+	s.Empty(ed.Name)
+	s.Equal(uint32(0), ed.TimeoutMS)
 }
 
 func (s *HandleStartCmdTestSuite) TestHandleRegister_EmptyCatalogAcksAndWritesNothing() {

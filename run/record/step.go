@@ -66,7 +66,7 @@ func StepStart(d ext.Directive, currentState ext.RunState, defaultTimeoutMS uint
 	records = append(records, workerTaskDispatch)
 	records = append(records, runStateUpdate)
 
-	slog.Debug("StartStep transition created")
+	slog.Debug("startStep transition created")
 
 	return records, nil
 

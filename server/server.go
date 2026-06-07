@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"grctl/server/api"
 	"grctl/server/config"
@@ -13,6 +14,8 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
+
+var log = slog.With("component", "server")
 
 const maxTimerDeliveries = 10
 const maxBgTaskDeliveries = 5

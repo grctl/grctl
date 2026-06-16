@@ -109,6 +109,9 @@ func EventStart(d ext.Directive, currentState ext.RunState, defaultTimeoutMS uin
 	records := make([]model.Record, 0, 4)
 
 	d.RunInfo.HistorySeqID = currentState.SeqID
+	if d.RunInfo.StartedAt == nil && currentState.StartedAt != nil {
+		d.RunInfo.StartedAt = currentState.StartedAt
+	}
 
 	msg, ok := d.Msg.(*ext.Event)
 	if !ok {
@@ -127,10 +130,6 @@ func EventStart(d ext.Directive, currentState ext.RunState, defaultTimeoutMS uin
 	}
 
 	ri := d.RunInfo
-	if ri.StartedAt == nil && currentState.StartedAt != nil {
-		ri.StartedAt = currentState.StartedAt
-	}
-
 	ri, err = ri.StartStep(stepName, d.Timestamp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create step started state update: %w", err)

@@ -11,8 +11,9 @@ import (
 // distinguish storage-level conditions (CAS rejection, duplicate) from
 // infrastructure errors without importing the store package.
 type CommitResult struct {
-	IsCASRejection     bool
-	IsDuplicateMessage bool
+	IsCASRejection              bool
+	IsDuplicateMessage          bool
+	IsAtomicPublishBackpressure bool
 }
 
 // StateSnapshot holds the current state of a run as seen by the run manager.

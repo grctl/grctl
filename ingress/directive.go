@@ -52,7 +52,7 @@ func (q *directiveQueue) Start(handler DirectiveHandler) error {
 	q.handler = handler
 
 	cons, err := q.consumer.Consume(
-		q.processMessage,
+		q.dispatch,
 		jetstream.ConsumeErrHandler(func(_ jetstream.ConsumeContext, err error) {
 			if errors.Is(err, jetstream.ErrServerShutdown) {
 				return
@@ -77,11 +77,15 @@ func (q *directiveQueue) Stop() {
 	slog.Debug("directive consumer stopped")
 }
 
+func (q *directiveQueue) dispatch(msg jetstream.Msg) {
+	q.wg.Go(func() {
+		q.processMessage(msg)
+	})
+}
+
 // processMessage deserializes the NATS message into a Directive,
 // passes it to the handler, and translates HandleResult to NATS Ack/Nak operations.
 func (q *directiveQueue) processMessage(msg jetstream.Msg) {
-	q.wg.Add(1)
-	defer q.wg.Done()
 
 	var directive ext.Directive
 	if err := msgpack.Unmarshal(msg.Data(), &directive); err != nil {
@@ -97,6 +101,12 @@ func (q *directiveQueue) processMessage(msg jetstream.Msg) {
 		slog.Warn("failed to read directive message metadata, defaulting delivery count", "error", err)
 	} else {
 		numDelivered = uint64(md.NumDelivered)
+	}
+
+	slog.Info("directive delivered", "num_delivered", numDelivered, "kind", directive.Kind)
+
+	if numDelivered > 1 {
+		slog.Warn("directive redelivered", "num_delivered", numDelivered, "kind", directive.Kind)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), processingTimeout)

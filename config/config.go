@@ -137,7 +137,7 @@ func (c Config) Validate() error {
 		return fmt.Errorf("nats.storage must be \"memory\" or \"file\"")
 	}
 
-if c.Defaults.StepTimeout <= 0 {
+	if c.Defaults.StepTimeout <= 0 {
 		return fmt.Errorf("defaults.step_timeout must be positive")
 	}
 	if c.Defaults.WaitTimeout <= 0 {

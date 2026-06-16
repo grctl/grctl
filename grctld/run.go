@@ -140,7 +140,25 @@ func shutdown(s *server.Server, nc *nats.Conn, ns *natsserver.Server) {
 	nc.Close()
 
 	if ns != nil {
+		shutdownEmbeddedNATS(ns)
+	}
+}
+
+// shutdownEmbeddedNATS shuts down the embedded NATS server, recovering from
+// a known panic in nats-server 2.12.6 where shutdownEventing closes a nil
+// channel when monitoring/eventing features are not configured.
+func shutdownEmbeddedNATS(ns *natsserver.Server) {
+	panicked := false
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Warn("recovered panic during embedded NATS shutdown", "panic", r)
+				panicked = true
+			}
+		}()
 		ns.Shutdown()
+	}()
+	if !panicked {
 		ns.WaitForShutdown()
 	}
 }

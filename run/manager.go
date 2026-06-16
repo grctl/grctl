@@ -61,11 +61,15 @@ func (m *Manager) Handle(ctx context.Context, d ext.Directive, numDelivered uint
 	ctx = context.WithValue(ctx, ctxKeyRunStateKind, sn.RunState.Kind)
 
 	// plan owns the terminal-run guard: a directive for a finished run yields no
-	// records, which commits as a no-op (Processed). See plan().
+	// records, which is a no-op (Processed).
 	records, err := plan(ctx, d, sn, m.defaultStepTimeoutMS, m.defaultWaitTimeoutMS)
 	if err != nil {
 		slog.Error("failed to create plan", "error", err)
 		return model.Retryable(RetryDelay)
+	}
+
+	if len(records) == 0 {
+		return model.Processed()
 	}
 
 	result, err := m.commit(ctx, records)
@@ -90,6 +94,12 @@ func (m *Manager) commit(ctx context.Context, updates []model.Record) (model.Han
 		if result.IsDuplicateMessage {
 			// Idempotent handling: if it's a duplicate message, we can consider it processed successfully.
 			return model.Processed(), nil
+		}
+
+		if result.IsAtomicPublishBackpressure {
+			// The server is at its concurrent atomic-batch limit. This is transient backpressure,
+			// not a permanent failure — retry after a short delay.
+			return model.Retryable(RetryDelay), nil
 		}
 
 		return model.HandleResult{}, err

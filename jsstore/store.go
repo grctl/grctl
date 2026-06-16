@@ -121,17 +121,18 @@ func (s *JSStateStore) ListRuns(ctx context.Context) ([]*ext.RunInfo, error) {
 		return nil, fmt.Errorf("failed to get batch iterator: %w", err)
 	}
 
-	var runs []*ext.RunInfo
+	runs := make([]*ext.RunInfo, 0)
 	for msg, err := range msgs {
+		if errors.Is(err, jetstreamext.ErrNoMessages) {
+			break
+		}
 		if err != nil {
-			slog.Error("listRuns iteration error", "error", err)
-			continue
+			return nil, fmt.Errorf("failed to iterate runs: %w", err)
 		}
 
 		var info ext.RunInfo
 		if err := msgpack.Unmarshal(msg.Data, &info); err != nil {
-			slog.Error("listRuns unmarshal error", "error", err)
-			continue
+			return nil, fmt.Errorf("failed to unmarshal run info: %w", err)
 		}
 		runs = append(runs, &info)
 	}
@@ -343,7 +344,9 @@ func (s *JSStateStore) Commit(ctx context.Context, records []models.Record) (mod
 
 	for i := 0; i < len(msgs)-1; i++ {
 		if err = batch.AddMsg(&msgs[i]); err != nil {
-			return models.CommitResult{}, fmt.Errorf("failed to add message to batch: %w", err)
+			return models.CommitResult{
+				IsAtomicPublishBackpressure: IsAtomicPublishBackpressure(err),
+			}, fmt.Errorf("failed to add message to batch: %w", err)
 		}
 	}
 
@@ -353,8 +356,9 @@ func (s *JSStateStore) Commit(ctx context.Context, records []models.Record) (mod
 			subjects = append(subjects, m.Subject)
 		}
 		return models.CommitResult{
-			IsCASRejection:     IsCASRejection(err),
-			IsDuplicateMessage: IsDuplicateMessage(err),
+			IsCASRejection:              IsCASRejection(err),
+			IsDuplicateMessage:          IsDuplicateMessage(err),
+			IsAtomicPublishBackpressure: IsAtomicPublishBackpressure(err),
 		}, fmt.Errorf("failed to commit batch (last_subject=%s, subjects=%s): %w", msgs[len(msgs)-1].Subject, strings.Join(subjects, ","), err)
 	}
 
@@ -383,4 +387,12 @@ func IsDuplicateMessage(err error) bool {
 	}
 
 	return strings.Contains(strings.ToLower(apiErr.Description), "duplicate message")
+}
+
+// IsAtomicPublishBackpressure reports whether err is the server signalling too many
+// concurrent in-flight atomic batches (error code 10210). This is transient backpressure
+// and the caller should retry with a delay.
+func IsAtomicPublishBackpressure(err error) bool {
+	var apiErr *jetstream.APIError
+	return errors.As(err, &apiErr) && apiErr.ErrorCode == 10210
 }

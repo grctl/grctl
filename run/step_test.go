@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	model "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 
 	"github.com/stretchr/testify/require"
@@ -68,6 +69,23 @@ func TestStep(t *testing.T) {
 		rs.requireDispatchedStep("step-b")
 		rs.requireTimer(ext.TimerKindStepTimeout)
 		require.Equal(t, ext.RunStateStep, rs.finalRunState().Kind)
+	})
+
+	t.Run("a completed step dispatches next step after latest history sequence", func(t *testing.T) {
+		d := stepResultDirective("step-a", ext.DirectiveKindStep, &ext.Step{Name: "step-b"})
+		sn := stepSnapshot("directive-of-step-a")
+		sn.LastHistorySeqID = 123
+
+		records, err := plan(ctx, d, sn, 0, 0)
+		require.NoError(t, err)
+
+		for _, r := range records {
+			if rec, ok := r.(model.WorkerTaskDispatch); ok {
+				require.Equal(t, uint64(124), rec.Directive.RunInfo.HistorySeqID)
+				return
+			}
+		}
+		require.Fail(t, "expected worker task dispatch")
 	})
 
 	t.Run("a failed step fails the workflow", func(t *testing.T) {

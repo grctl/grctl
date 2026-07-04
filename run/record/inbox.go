@@ -108,7 +108,9 @@ func EventReceived(d ext.Directive, sn model.StateSnapshot) ([]model.Record, err
 func EventStart(d ext.Directive, currentState ext.RunState, defaultTimeoutMS uint32) ([]model.Record, error) {
 	records := make([]model.Record, 0, 4)
 
-	d.RunInfo.HistorySeqID = currentState.SeqID
+	if d.RunInfo.HistorySeqID == 0 {
+		d.RunInfo.HistorySeqID = currentState.SeqID
+	}
 	if d.RunInfo.StartedAt == nil && currentState.StartedAt != nil {
 		d.RunInfo.StartedAt = currentState.StartedAt
 	}

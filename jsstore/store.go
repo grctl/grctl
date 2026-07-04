@@ -150,6 +150,12 @@ func (s *JSStateStore) GetStateSnapshot(ctx context.Context, wfID ext.WFID, runI
 		snapshot.RunState = state
 	}
 
+	lastHistorySeqID, err := s.GetLastHistorySeqID(ctx, wfID, runID)
+	if err != nil {
+		return models.StateSnapshot{}, err
+	}
+	snapshot.LastHistorySeqID = lastHistorySeqID
+
 	event, _, err := s.GetNextEvent(ctx, wfID, snapshot.RunState.LastEventSeqID)
 	if err != nil {
 		if !errors.Is(err, jetstreamext.ErrNoMessages) {
@@ -237,6 +243,18 @@ func (h *JSStateStore) GetHistoryForRun(ctx context.Context, workflowID ext.WFID
 	slog.Debug("listed workflow runs", "count", len(events))
 
 	return events, nil
+}
+
+func (s *JSStateStore) GetLastHistorySeqID(ctx context.Context, workflowID ext.WFID, runID ext.RunID) (uint64, error) {
+	subject := natsreg.Manifest.HistorySubject(workflowID, runID)
+	entry, err := s.stream.GetLastMsgForSubject(ctx, subject)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrMsgNotFound) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to get last history message: %w", err)
+	}
+	return entry.Sequence, nil
 }
 
 func (s *JSStateStore) HasRunInput(ctx context.Context, wfID ext.WFID, runID ext.RunID) (bool, error) {

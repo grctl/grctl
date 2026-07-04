@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/grctl/grctl/compare/v0.4.0...v0.5.0) (2026-07-04)
+
+
+### Features
+
+* add json support for cli history cmd ([#56](https://github.com/grctl/grctl/issues/56)) ([85d0ca2](https://github.com/grctl/grctl/commit/85d0ca23436f1ca919adba606d47c6fdcb8d62ba))
+
+
+### Bug Fixes
+
+* directive dispatch ([#53](https://github.com/grctl/grctl/issues/53)) ([9badb8f](https://github.com/grctl/grctl/commit/9badb8f68ecc6cc881f1de88691f7bbcbe2ad003))
+* last histtory seq id ([#57](https://github.com/grctl/grctl/issues/57)) ([7f1c2cf](https://github.com/grctl/grctl/commit/7f1c2cf1ed647c7b1c37f78b769c0751674e4dcf))
+
 ## [0.4.0](https://github.com/grctl/grctl/compare/v0.3.2...v0.4.0) (2026-06-07)
 
 

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"grctl/server/config"
+	"grctl/server/grctld/telemetry"
+	"grctl/server/metrics"
 	"grctl/server/natsembd"
 	"grctl/server/natsreg"
 	"grctl/server/server"
@@ -69,7 +71,17 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	s, err := server.NewServer(ctx, nc, js, &cfg, &server.Options{InMemory: cfg.NATS.InMemory()})
+	metricsRecorder, shutdownTelemetry, err := initTelemetry(ctx, cfg.Telemetry)
+	if err != nil {
+		slog.Error("failed to initialize telemetry", "error", err)
+		return err
+	}
+	defer shutdownTelemetry()
+
+	s, err := server.NewServer(ctx, nc, js, &cfg, &server.Options{
+		InMemory: cfg.NATS.InMemory(),
+		Metrics:  metricsRecorder,
+	})
 	if err != nil {
 		slog.Error("failed to create server instance", "error", err)
 		return err
@@ -87,6 +99,29 @@ func runServer(cmd *cobra.Command, args []string) error {
 	<-ctx.Done()
 	shutdown(s, nc, ns)
 	return nil
+}
+
+func initTelemetry(ctx context.Context, cfg config.TelemetryConfig) (metrics.Recorder, func(), error) {
+	noop := func() {}
+	if !cfg.Enabled {
+		return metrics.NewNoopRecorder(), noop, nil
+	}
+
+	slog.Info("telemetry enabled", "otlp_endpoint", cfg.OTLPEndpoint)
+	mp, shutdown, err := telemetry.NewMeterProvider(ctx, cfg.OTLPEndpoint, cfg.Insecure, "grctld")
+	if err != nil {
+		return nil, noop, fmt.Errorf("init meter provider: %w", err)
+	}
+
+	shutdownFn := func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdown(shutdownCtx); err != nil {
+			slog.Warn("telemetry shutdown error", "error", err)
+		}
+	}
+
+	return metrics.NewOTelRecorder(mp), shutdownFn, nil
 }
 
 func startNATS(cfg config.Config) (*nats.Conn, jetstream.JetStream, *natsserver.Server, error) {

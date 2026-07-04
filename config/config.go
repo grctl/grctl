@@ -24,9 +24,16 @@ const (
 )
 
 type Config struct {
-	NATS     NATSConfig     `koanf:"nats"`
-	Defaults DefaultsConfig `koanf:"defaults"`
-	Logging  LoggingConfig  `koanf:"logging"`
+	NATS      NATSConfig      `koanf:"nats"`
+	Defaults  DefaultsConfig  `koanf:"defaults"`
+	Logging   LoggingConfig   `koanf:"logging"`
+	Telemetry TelemetryConfig `koanf:"telemetry"`
+}
+
+type TelemetryConfig struct {
+	Enabled      bool   `koanf:"enabled"`
+	OTLPEndpoint string `koanf:"otlp_endpoint"`
+	Insecure     bool   `koanf:"insecure"`
 }
 
 type LoggingConfig struct {

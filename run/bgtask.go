@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"grctl/server/metrics"
 	model "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 
@@ -45,6 +46,7 @@ type BgTaskHandler struct {
 	residuePurger  RunResiduePurger
 	parentNotifier ParentNotifier
 	workerCmds     WorkerCommandPublisher
+	metrics        metrics.Recorder
 	maxDeliveries  uint64
 }
 
@@ -54,6 +56,7 @@ func NewBgTaskHandler(
 	residuePurger RunResiduePurger,
 	parentNotifier ParentNotifier,
 	workerCmds WorkerCommandPublisher,
+	metricsRecorder metrics.Recorder,
 	maxDeliveries uint64,
 ) *BgTaskHandler {
 	return &BgTaskHandler{
@@ -62,6 +65,7 @@ func NewBgTaskHandler(
 		residuePurger:  residuePurger,
 		parentNotifier: parentNotifier,
 		workerCmds:     workerCmds,
+		metrics:        metricsRecorder,
 		maxDeliveries:  maxDeliveries,
 	}
 }
@@ -73,24 +77,34 @@ func (h *BgTaskHandler) Handle(ctx context.Context, task ext.BackgroundTask, num
 			"num_delivered", numDelivered,
 			"max_deliveries", h.maxDeliveries,
 		)
+		h.metrics.RecordBgTask(ctx, string(task.Kind), "discarded")
 		return model.Processed()
 	}
 
+	var result model.HandleResult
 	switch task.Kind {
 	case ext.BackgroundTaskKindDeleteTimer:
-		return h.handleDeleteTimer(ctx, task)
+		result = h.handleDeleteTimer(ctx, task)
 	case ext.BackgroundTaskKindDeleteInboxEvent:
-		return h.handleDeleteInboxEvent(ctx, task)
+		result = h.handleDeleteInboxEvent(ctx, task)
 	case ext.BackgroundTaskKindPurgeRunResidue:
-		return h.handlePurgeRunResidue(ctx, task)
+		result = h.handlePurgeRunResidue(ctx, task)
 	case ext.BackgroundTaskKindNotifyParentComplete:
-		return h.handleNotifyParentComplete(ctx, task)
+		result = h.handleNotifyParentComplete(ctx, task)
 	case ext.BackgroundTaskKindWorkerTerminateRun:
-		return h.handleWorkerTerminateRun(ctx, task)
+		result = h.handleWorkerTerminateRun(ctx, task)
 	default:
 		slog.Warn("unknown background task kind, discarding", "kind", task.Kind)
+		h.metrics.RecordBgTask(ctx, string(task.Kind), "discarded")
 		return model.Processed()
 	}
+
+	resultLabel := "processed"
+	if result.Action == model.ActionRetryable {
+		resultLabel = "retried"
+	}
+	h.metrics.RecordBgTask(ctx, string(task.Kind), resultLabel)
+	return result
 }
 
 func (h *BgTaskHandler) handleDeleteTimer(ctx context.Context, task ext.BackgroundTask) model.HandleResult {

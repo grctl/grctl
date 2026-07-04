@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"grctl/server/metrics"
 	"grctl/server/run/record"
 	model "grctl/server/types"
 	ext "grctl/server/types/external/v1"
@@ -29,13 +30,15 @@ type Recorder interface {
 
 type Manager struct {
 	recorder             Recorder
+	metrics              metrics.Recorder
 	defaultStepTimeoutMS uint32
 	defaultWaitTimeoutMS uint32
 }
 
-func NewManager(recorder Recorder, defaultStepTimeoutMS uint32, defaultWaitTimeoutMS uint32) *Manager {
+func NewManager(recorder Recorder, metricsRecorder metrics.Recorder, defaultStepTimeoutMS uint32, defaultWaitTimeoutMS uint32) *Manager {
 	return &Manager{
 		recorder:             recorder,
+		metrics:              metricsRecorder,
 		defaultStepTimeoutMS: defaultStepTimeoutMS,
 		defaultWaitTimeoutMS: defaultWaitTimeoutMS,
 	}
@@ -45,6 +48,17 @@ func NewManager(recorder Recorder, defaultStepTimeoutMS uint32, defaultWaitTimeo
 // Receives the directives from the directive consumer.
 // As a result, commits the state updates and returns Handle Result. So, the caller can decide retry or not.
 func (m *Manager) Handle(ctx context.Context, d ext.Directive, numDelivered uint64) model.HandleResult {
+	start := time.Now()
+
+	if d.Kind == ext.DirectiveKindStepResult || d.Kind == ext.DirectiveKindStepPickedUp {
+		lagMS := start.Sub(d.Timestamp).Milliseconds()
+		slog.Info("directive lag",
+			"kind", d.Kind,
+			"lag_ms", lagMS,
+			"run_id", d.RunInfo.ID,
+		)
+	}
+
 	slog.DebugContext(ctx, "handling directive", "kind", d.Kind)
 	ctx = context.WithValue(ctx, ctxKeyWFID, d.RunInfo.WFID)
 	ctx = context.WithValue(ctx, ctxKeyRunID, d.RunInfo.ID)
@@ -65,47 +79,85 @@ func (m *Manager) Handle(ctx context.Context, d ext.Directive, numDelivered uint
 	records, err := plan(ctx, d, sn, m.defaultStepTimeoutMS, m.defaultWaitTimeoutMS)
 	if err != nil {
 		slog.Error("failed to create plan", "error", err)
-		return model.Retryable(RetryDelay)
-	}
-
-	if len(records) == 0 {
-		return model.Processed()
-	}
-
-	result, err := m.commit(ctx, records)
-	if err != nil {
-		slog.Error("failed to apply state updates", "error", err)
 		return m.failAndCommit(ctx, d, sn.RunState, err)
 	}
 
+	commitStart := time.Now()
+	result := m.commit(ctx, records)
+	m.metrics.RecordDirectiveCommit(ctx, string(d.Kind), time.Since(commitStart))
+
+	if outcome, ok := findTerminalOutcome(records); ok {
+		m.metrics.RecordRunTerminal(ctx, string(d.RunInfo.WFType), string(outcome))
+	}
+
+	m.metrics.RecordDirectiveHandle(ctx, string(d.Kind), time.Since(start))
 	return result
 }
 
-func (m *Manager) commit(ctx context.Context, updates []model.Record) (model.HandleResult, error) {
+func findTerminalOutcome(records []model.Record) (ext.RunStateKind, bool) {
+	for _, r := range records {
+		if rs, ok := r.(model.RunStateRecord); ok && rs.State.IsTerminal() {
+			return rs.State.Kind, true
+		}
+	}
+	return "", false
+}
+
+func shouldTraceDirective(kind ext.DirectiveKind) bool {
+	return kind == ext.DirectiveKindStepResult || kind == ext.DirectiveKindStepPickedUp
+}
+
+func inspectRecords(records []model.Record) (bool, string) {
+	for _, r := range records {
+		if dispatch, ok := r.(model.WorkerTaskDispatch); ok {
+			if msg, ok := dispatch.Directive.Msg.(ext.DispatchableMessage); ok {
+				return true, msg.StepName()
+			}
+			return true, ""
+		}
+	}
+	return false, ""
+}
+
+func handleActionName(action model.HandlerAction) string {
+	switch action {
+	case model.ActionProcessed:
+		return "processed"
+	case model.ActionRetryable:
+		return "retryable"
+	case model.ActionFailed:
+		return "failed"
+	default:
+		return "unknown"
+	}
+}
+
+func (m *Manager) commit(ctx context.Context, updates []model.Record) model.HandleResult {
 	result, err := m.recorder.Commit(ctx, updates)
 	if err != nil {
 		if result.IsCASRejection {
 			// A CAS rejection, a concurrent update to the run state,
 			// which could be due to another directive being processed at the same time.
 			// Retrying after a delay allows the system to resolve the conflict and apply the updates successfully.
-			return model.Retryable(RetryDelay), nil
+			return model.Retryable(RetryDelay)
 		}
 
 		if result.IsDuplicateMessage {
 			// Idempotent handling: if it's a duplicate message, we can consider it processed successfully.
-			return model.Processed(), nil
+			return model.Processed()
 		}
 
 		if result.IsAtomicPublishBackpressure {
 			// The server is at its concurrent atomic-batch limit. This is transient backpressure,
 			// not a permanent failure — retry after a short delay.
-			return model.Retryable(RetryDelay), nil
+			return model.Retryable(RetryDelay)
 		}
 
-		return model.HandleResult{}, err
+		slog.Error("failed to commit records", "error", err)
+		return model.Retryable(RetryDelay)
 	}
 
-	return model.Processed(), nil
+	return model.Processed()
 }
 
 func (m *Manager) failAndCommit(ctx context.Context, d ext.Directive, currentState ext.RunState, cause error) model.HandleResult {
@@ -117,10 +169,5 @@ func (m *Manager) failAndCommit(ctx context.Context, d ext.Directive, currentSta
 
 	// If CAS rejection happens at that point, failAndCommit will retry the failure updates.
 	// But concrete failure will be logged and the result will be processed.
-	result, err := m.commit(ctx, failureUpdates)
-	if err != nil {
-		slog.Error("failed to apply failure updates", "error", err)
-		return model.Processed()
-	}
-	return result
+	return m.commit(ctx, failureUpdates)
 }

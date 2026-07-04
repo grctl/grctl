@@ -8,6 +8,7 @@ import (
 
 	"grctl/server/config"
 	"grctl/server/jsstore"
+	"grctl/server/metrics"
 	model "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 
@@ -68,7 +69,7 @@ type ServiceSuite struct {
 func (s *ServiceSuite) SetupTest() {
 	s.store = &fakeRunStore{}
 	s.registry = &fakeTypeRegistry{}
-	s.svc = NewService(s.store, &config.DefaultsConfig{StepTimeout: 5 * time.Minute}, s.registry)
+	s.svc = NewService(s.store, &config.DefaultsConfig{StepTimeout: 5 * time.Minute}, s.registry, metrics.NewNoopRecorder())
 }
 
 func TestService(t *testing.T) {

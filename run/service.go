@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"grctl/server/config"
+	"grctl/server/metrics"
 	model "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 )
@@ -30,13 +31,15 @@ type Service struct {
 	store    RunStore
 	config   *config.DefaultsConfig
 	registry TypeRegistry
+	metrics  metrics.Recorder
 }
 
-func NewService(store RunStore, config *config.DefaultsConfig, registry TypeRegistry) *Service {
+func NewService(store RunStore, config *config.DefaultsConfig, registry TypeRegistry, metricsRecorder metrics.Recorder) *Service {
 	return &Service{
 		store:    store,
 		config:   config,
 		registry: registry,
+		metrics:  metricsRecorder,
 	}
 }
 
@@ -77,6 +80,7 @@ func (m *Service) StartRun(ctx context.Context, cmd ext.StartCmd) error {
 		return fmt.Errorf("failed to enqueue start directive: %w", err)
 	}
 
+	m.metrics.RecordRunStarted(ctx, string(cmd.RunInfo.WFType))
 	slog.Debug("workflow started", "workflow_id", cmd.RunInfo.WFID, "run_id", cmd.RunInfo.ID)
 	return nil
 }

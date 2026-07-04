@@ -13,5 +13,8 @@ func defaultConfigMap() map[string]any {
 		"logging.level":         "info",
 		"logging.format":        "",
 		"logging.add_source":    false,
+		"telemetry.enabled":       false,
+		"telemetry.otlp_endpoint": "localhost:4317",
+		"telemetry.insecure":      true,
 	}
 }

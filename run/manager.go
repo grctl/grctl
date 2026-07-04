@@ -103,34 +103,6 @@ func findTerminalOutcome(records []model.Record) (ext.RunStateKind, bool) {
 	return "", false
 }
 
-func shouldTraceDirective(kind ext.DirectiveKind) bool {
-	return kind == ext.DirectiveKindStepResult || kind == ext.DirectiveKindStepPickedUp
-}
-
-func inspectRecords(records []model.Record) (bool, string) {
-	for _, r := range records {
-		if dispatch, ok := r.(model.WorkerTaskDispatch); ok {
-			if msg, ok := dispatch.Directive.Msg.(ext.DispatchableMessage); ok {
-				return true, msg.StepName()
-			}
-			return true, ""
-		}
-	}
-	return false, ""
-}
-
-func handleActionName(action model.HandlerAction) string {
-	switch action {
-	case model.ActionProcessed:
-		return "processed"
-	case model.ActionRetryable:
-		return "retryable"
-	case model.ActionFailed:
-		return "failed"
-	default:
-		return "unknown"
-	}
-}
 
 func (m *Manager) commit(ctx context.Context, updates []model.Record) model.HandleResult {
 	result, err := m.recorder.Commit(ctx, updates)

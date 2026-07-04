@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"grctl/server/metrics"
 	"grctl/server/run"
 	"grctl/server/types/external/v1"
 )
@@ -16,14 +17,19 @@ var (
 )
 
 type APIHandler struct {
-	runSvc *run.Service
+	runSvc  *run.Service
+	metrics metrics.Recorder
 }
 
-func NewAPIHandler(runSvc *run.Service) *APIHandler {
-	return &APIHandler{runSvc: runSvc}
+func NewAPIHandler(runSvc *run.Service, metricsRecorder metrics.Recorder) *APIHandler {
+	return &APIHandler{runSvc: runSvc, metrics: metricsRecorder}
 }
 
-func (h *APIHandler) handleMessage(msg external.Command) (any, error) {
+func (h *APIHandler) handleMessage(msg external.Command) (payload any, err error) {
+	defer func() {
+		h.metrics.RecordAPICommand(context.Background(), string(msg.Kind), err == nil)
+	}()
+
 	switch msg.Kind {
 	case external.CmdKindRunStart:
 		return nil, h.handleStart(msg)

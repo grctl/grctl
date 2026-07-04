@@ -8,6 +8,7 @@ import (
 	"grctl/server/config"
 	"grctl/server/ingress"
 	"grctl/server/jsstore"
+	"grctl/server/metrics"
 	"grctl/server/run"
 
 	"github.com/nats-io/nats.go"
@@ -46,7 +47,8 @@ type Server struct {
 
 // Options configures the server.
 type Options struct {
-	InMemory bool // Use in-memory storage for streams and KV buckets
+	InMemory bool             // Use in-memory storage for streams and KV buckets
+	Metrics  metrics.Recorder // Defaults to a noop recorder when nil
 }
 
 func NewServer(
@@ -58,6 +60,11 @@ func NewServer(
 ) (*Server, error) {
 	if opts == nil {
 		opts = &Options{}
+	}
+
+	metricsRecorder := opts.Metrics
+	if metricsRecorder == nil {
+		metricsRecorder = metrics.NewNoopRecorder()
 	}
 
 	stateStream, err := jsstore.EnsureStateStream(ctx, js, opts.InMemory)
@@ -85,9 +92,9 @@ func NewServer(
 	// srv is created early so it can be passed as WorkerCommandPublisher to bgTaskHandler.
 	srv := &Server{nc: nc, senderID: senderID}
 
-	runManager := run.NewManager(stateStore, uint32(cfg.Defaults.StepTimeout.Milliseconds()), uint32(cfg.Defaults.WaitTimeout.Milliseconds()))
+	runManager := run.NewManager(stateStore, metricsRecorder, uint32(cfg.Defaults.StepTimeout.Milliseconds()), uint32(cfg.Defaults.WaitTimeout.Milliseconds()))
 	timerMsgHandler := run.NewTimerMsgHandler(stateStore, maxTimerDeliveries)
-	bgTaskHandler := run.NewBgTaskHandler(timerStream, stateStore, stateStore, stateStore, srv, maxBgTaskDeliveries)
+	bgTaskHandler := run.NewBgTaskHandler(timerStream, stateStore, stateStore, stateStore, srv, metricsRecorder, maxBgTaskDeliveries)
 
 	bgTaskQueue, err := ingress.NewBgTaskQueue(ctx, stateStream)
 	if err != nil {
@@ -95,8 +102,8 @@ func NewServer(
 	}
 
 	registry := jsstore.NewWorkflowTypeRegistry(js, stateStream)
-	runAPI := run.NewService(stateStore, &cfg.Defaults, registry)
-	apiHandler := api.NewAPIHandler(runAPI)
+	runAPI := run.NewService(stateStore, &cfg.Defaults, registry, metricsRecorder)
+	apiHandler := api.NewAPIHandler(runAPI, metricsRecorder)
 	apiSubscriber := api.NewAPISubscriber(nc, apiHandler)
 
 	srv.apiSubscriber = apiSubscriber

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"grctl/server/metrics"
 	intr "grctl/server/types"
 	ext "grctl/server/types/external/v1"
 
@@ -68,7 +69,7 @@ func (s *BgTaskHandlerSuite) SetupTest() {
 	s.purger = &fakePurger{}
 	s.notifier = &fakeNotifier{}
 	s.workerCmds = &fakeWorkerCmds{}
-	s.handler = NewBgTaskHandler(nil, nil, s.purger, s.notifier, s.workerCmds, 3)
+	s.handler = NewBgTaskHandler(nil, nil, s.purger, s.notifier, s.workerCmds, metrics.NewNoopRecorder(), 3)
 }
 
 func TestBgTaskHandler(t *testing.T) {

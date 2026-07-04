@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"grctl/server/jsstore"
+	"grctl/server/metrics"
 	"grctl/server/natsreg"
 	"grctl/server/testutil"
 	intr "grctl/server/types"
@@ -60,7 +61,7 @@ func (s *PurgeRunResidueIntegrationSuite) subjectEmpty(subject string) bool {
 }
 
 func (s *PurgeRunResidueIntegrationSuite) runHandler(wfID ext.WFID) {
-	handler := NewBgTaskHandler(nil, nil, s.store, nil, nil, 5)
+	handler := NewBgTaskHandler(nil, nil, s.store, nil, nil, metrics.NewNoopRecorder(), 5)
 	task, err := ext.NewPurgeRunResidueTask(ext.NewDirectiveID(), wfID)
 	s.Require().NoError(err)
 
@@ -104,7 +105,7 @@ func (s *PurgeRunResidueIntegrationSuite) TestIdempotent() {
 
 	s.publishRaw(natsreg.Manifest.DirectiveSubject(wfType, wfID, runID), []byte("data"))
 
-	handler := NewBgTaskHandler(nil, nil, s.store, nil, nil, 5)
+	handler := NewBgTaskHandler(nil, nil, s.store, nil, nil, metrics.NewNoopRecorder(), 5)
 	task, err := ext.NewPurgeRunResidueTask(ext.NewDirectiveID(), wfID)
 	s.Require().NoError(err)
 
@@ -118,7 +119,7 @@ func (s *PurgeRunResidueIntegrationSuite) TestIdempotent() {
 func (s *PurgeRunResidueIntegrationSuite) TestNoMessages() {
 	wfID := ext.WFID("wf-empty")
 
-	handler := NewBgTaskHandler(nil, nil, s.store, nil, nil, 5)
+	handler := NewBgTaskHandler(nil, nil, s.store, nil, nil, metrics.NewNoopRecorder(), 5)
 	task, err := ext.NewPurgeRunResidueTask(ext.NewDirectiveID(), wfID)
 	s.Require().NoError(err)
 

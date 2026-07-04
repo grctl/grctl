@@ -1,9 +1,9 @@
 package commands
 
 import (
+	"fmt"
 	"grctl/server/grctl/tui/workflow_browser"
 	"grctl/server/grctl/tui/workflow_history"
-	ext "grctl/server/types/external/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -24,21 +24,23 @@ var workflowListCmd = &cobra.Command{
 var historyFlagWFID string
 var historyFlagID string
 
+var historyFlagJSON bool
+
 var workflowHistoryCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Show history for a workflow run",
-	Long:  `Display the event history of a specific workflow run in an interactive table view.`,
+	Long:  `Display the event history of a specific workflow run in an interactive table view, or print JSONL to stdout with --json.`,
 	Example: `  grctl workflow history --id my-order-123
-  grctl workflow history --id my-order-123 --run-id 01JQKZ2XYZ`,
+  grctl workflow history --run-id 01JQKZ2XYZ
+  grctl workflow history --id my-order-123 --json
+  grctl workflow history --run-id 01JQKZ2XYZ --json | jq .kind`,
 	RunE: runWorkflowHistory,
 }
 
 func init() {
-	workflowHistoryCmd.Flags().StringVarP(&historyFlagWFID, "id", "i", "", "Workflow ID (required)")
-	workflowHistoryCmd.Flags().StringVar(&historyFlagID, "run-id", "", "Workflow run ID (optional, defaults to latest run)")
-	if err := workflowHistoryCmd.MarkFlagRequired("id"); err != nil {
-		panic(err)
-	}
+	workflowHistoryCmd.Flags().StringVarP(&historyFlagWFID, "id", "i", "", "Workflow ID")
+	workflowHistoryCmd.Flags().StringVar(&historyFlagID, "run-id", "", "Workflow run ID (defaults to latest run)")
+	workflowHistoryCmd.Flags().BoolVar(&historyFlagJSON, "json", false, "Output history as JSONL to stdout")
 
 	workflowCmd.AddCommand(workflowListCmd)
 	workflowCmd.AddCommand(workflowHistoryCmd)
@@ -61,11 +63,21 @@ func runWorkflowList(cmd *cobra.Command, args []string) error {
 }
 
 func runWorkflowHistory(cmd *cobra.Command, args []string) error {
+	if historyFlagWFID == "" && historyFlagID == "" {
+		return fmt.Errorf("at least one of --id or --run-id is required")
+	}
+
+	if historyFlagJSON {
+		return printWorkflowHistoryJSON(normalizeServerURL(serverURL), historyFlagWFID, historyFlagID)
+	}
+
 	cleanup := setupFileLogging()
 	defer cleanup()
 
-	wfID := ext.WFID(historyFlagWFID)
-	runID := ext.RunID(historyFlagID)
+	wfID, runID, err := resolveRunIDs(normalizeServerURL(serverURL), historyFlagWFID, historyFlagID)
+	if err != nil {
+		return err
+	}
 
 	m := workflow_history.NewWorkflowHistoryModel(normalizeServerURL(serverURL), wfID, runID, 0, 0)
 	p := tea.NewProgram(m, tea.WithAltScreen())

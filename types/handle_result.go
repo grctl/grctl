@@ -18,8 +18,9 @@ type CommitResult struct {
 
 // StateSnapshot holds the current state of a run as seen by the run manager.
 type StateSnapshot struct {
-	RunState ext.RunState
-	Event    ext.Directive
+	RunState         ext.RunState
+	Event            ext.Directive
+	LastHistorySeqID uint64
 }
 
 // HandlerAction defines the outcome of processing a directive

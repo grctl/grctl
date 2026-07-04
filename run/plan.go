@@ -99,6 +99,7 @@ func planFromStepResult(ctx context.Context, d ext.Directive, sn model.StateSnap
 	}
 
 	nextD := deriveNextDirective(d, msg)
+	nextD.RunInfo.HistorySeqID = sn.LastHistorySeqID + 1
 
 	if nextD.Kind == ext.DirectiveKindFailStep {
 		failStep, ok := nextD.Msg.(*ext.FailStep)
